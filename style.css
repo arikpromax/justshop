@@ -12,6 +12,7 @@
   --tx:#0b0b0c; --mut:#6c6e74; --mut-dk:#8b8e95;
   --acc:#ff3b14; --acc-dk:#e02f0c;
   --pad:clamp(16px,4vw,44px);
+  --gap:clamp(12px,1.5vw,22px);   /* відстань між картками товарів */
   --max:1480px;
   --r:2px;
   --dsp:"Archivo","Arial Narrow",Arial,sans-serif;
@@ -145,10 +146,10 @@ ul,ol{padding:0;list-style:none}
 .sechead h2{max-width:20ch}
 
 /* ---------- сітка товарів (волосяні лінії) ---------- */
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--gap)}
 .grid--3{grid-template-columns:repeat(3,1fr)}
 .card{background:var(--paper);display:flex;flex-direction:column;position:relative;transition:background .2s}
-.card:hover{background:#fbfbfc}
+.card:hover .plate{background:#ececed}
 .plate{position:relative;aspect-ratio:1/1.06;overflow:hidden;display:grid;place-items:center;background:var(--grey)}
 .plate img{width:100%;height:100%;object-fit:cover}
 .plate::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(0,0,0,.02) 0 1px,transparent 1px 7px);pointer-events:none}
@@ -227,7 +228,8 @@ ul,ol{padding:0;list-style:none}
 
 /* режим списком */
 /* специфічність вища за мобільну сітку — список завжди в одну колонку */
-.grid.grid--list{grid-template-columns:1fr;background:var(--line)}
+.grid.grid--list{grid-template-columns:1fr;gap:var(--gap)}
+.grid--list .card{border:1px solid var(--line)}
 .grid--list .card{flex-direction:row;align-items:stretch}
 /* у списку фото теж має бути видно, тому плитка росте з шириною екрана */
 .grid--list .plate{width:clamp(132px,15vw,210px);aspect-ratio:1/1.1;height:auto;flex:none}
@@ -421,12 +423,12 @@ ul,ol{padding:0;list-style:none}
 .carn .iconbtn{border-color:var(--line)}
 .carn .iconbtn:hover:not([disabled]){border-color:var(--ink);background:var(--ink);color:#fff}
 .carn .iconbtn[disabled]{opacity:.3;pointer-events:none}
-.car{display:grid;grid-auto-flow:column;grid-auto-columns:calc(25% - .75px);gap:1px;background:var(--line);border:1px solid var(--line);overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none;overscroll-behavior-x:contain}
+.car{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 3*var(--gap))/4);gap:var(--gap);overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none;overscroll-behavior-x:contain}
 .car::-webkit-scrollbar{display:none}
 .car>.card{scroll-snap-align:start}
 .plate__off{position:absolute;top:8px;right:8px;z-index:2;background:var(--acc);color:#fff;padding:4px 7px;font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.05em}
-@media (max-width:1080px){.car{grid-auto-columns:calc(33.333% - .67px)}}
-@media (max-width:640px){.car{grid-auto-columns:calc(50% - .5px)}}
+@media (max-width:1080px){.car{grid-auto-columns:calc((100% - 2*var(--gap))/3)}}
+@media (max-width:640px){.car{grid-auto-columns:calc((100% - var(--gap))/2)}}
 
 /* ---------- шухляда з фільтрами ---------- */
 .drw{position:fixed;inset:0;z-index:95;visibility:hidden}
