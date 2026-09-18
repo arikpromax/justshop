@@ -420,28 +420,57 @@
     const word = h1.firstElementChild;
     const go = $('#wishGo'), cur = $('.fill__cur', fill);
     const wOf = el => (el ? el.getBoundingClientRect().width + (parseFloat(getComputedStyle(el).marginLeft) || 0) : 0);
-    const grow = () => {
-      ghost.style.fontSize = '';
-      ghost.textContent = inp.value || inp.placeholder || '';
+
+    // скільки місця лишається самому полю: рядок мінус слово «Пошук», стрілка й курсор
+    const room = () => {
       const cs = getComputedStyle(h1);
       const wrapped = cs.flexWrap !== 'nowrap';   // на телефоні поле займає окремий рядок
-      // скільки місця лишається полю: рядок мінус слово «Пошук», стрілка й курсор
       const box = wrapped ? fill.clientWidth : h1.clientWidth - word.offsetWidth - (parseFloat(cs.columnGap) || 0);
-      const max = Math.max(90, box - wOf(go) - wOf(cur) - 8);
-      const gw = ghost.offsetWidth;
-      // рядок ніколи не переноситься, інакше банер стрибав би на кожну довшу підказку;
-      // тому довгий текст не ріжемо, а зменшуємо кегль — на будь-якій ширині
-      const scale = gw > max ? Math.max(0.42, max / (gw + 12)) : 1;
-      inp.style.fontSize = scale < 1 ? (parseFloat(cs.fontSize) * scale).toFixed(1) + 'px' : '';
-      inp.style.width = Math.min(Math.max(gw * scale + 16, 90), max) + 'px';
-      // якщо підбір промахнувся на пару пікселів — дотискаємо за фактом
-      if (inp.scrollWidth > inp.clientWidth + 1) {
-        const k = inp.clientWidth / inp.scrollWidth;
-        inp.style.fontSize = (parseFloat(getComputedStyle(inp).fontSize) * k * 0.97).toFixed(1) + 'px';
+      return Math.max(90, box - wOf(go) - wOf(cur) - 8);
+    };
+    const widthOf = (text, size) => {
+      ghost.style.fontSize = size ? size + 'px' : '';
+      ghost.textContent = text || '';
+      const w = ghost.offsetWidth;
+      ghost.style.fontSize = '';
+      return w;
+    };
+
+    // Кегль підбираємо ОДИН раз — під найдовшу підказку. Тоді під час друку
+    // літери не змінюють розмір: рядок просто дописується, а не стискається.
+    let fit = 0;
+    const setFit = () => {
+      if (h1.clientWidth < 100) return;
+      const base = parseFloat(getComputedStyle(h1).fontSize);
+      const r = room();
+      const widest = WISHES.reduce((m, t) => Math.max(m, widthOf(t)), 1);
+      fit = widest > r ? Math.max(base * 0.4, base * r / (widest + 14)) : base;
+    };
+
+    const grow = () => {
+      // вкладка згорнута або ще не розкладена — міряти нічого
+      if (h1.clientWidth < 100) return;
+      const r = room();
+      const text = inp.value || inp.placeholder || '';
+      let size = fit;
+      // якщо вписали щось довше за найдовшу підказку — тільки тоді стискаємо далі
+      const w0 = widthOf(text, size);
+      if (w0 > r) size = Math.max(fit * 0.4, size * r / (w0 + 10));
+      inp.style.fontSize = size.toFixed(1) + 'px';
+      let w = widthOf(text, size);
+      // страховка за фактом, якщо розрахунок промахнувся
+      if (w > r) {
+        size = size * r / (w + 6);
+        inp.style.fontSize = size.toFixed(1) + 'px';
+        w = widthOf(text, size);
       }
+      inp.style.width = Math.min(Math.max(w + 12, 90), r) + 'px';
       fill.classList.toggle('is-typed', !!inp.value);
     };
-    addEventListener('resize', grow);
+    const relayout = () => { setFit(); grow(); };
+    addEventListener('resize', relayout);
+    // до завантаження Archivo заміри йдуть запасним шрифтом, а він вужчий
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
     const match = q => {
       const s = norm(q);
       if (s.length < 2) return [];
@@ -457,7 +486,7 @@
     $$('.chip').forEach(c => c.addEventListener('click', () => {
       inp.value = c.dataset.q; grow(); inp.focus();
     }));
-    grow();
+    relayout();
 
     /* друкарська машинка в підказці поля, поки порожньо */
     let ti = 0, tc = 0, hold = 0, paused = false;
@@ -466,7 +495,7 @@
     setInterval(() => {
       if (paused || inp.value) return;
       const w = WISHES[ti % WISHES.length];
-      if (hold > 0) { hold--; if (!hold) { tc = 0; ti++; } return; }
+      if (hold > 0) { hold--; if (!hold) { tc = 0; ti++; } grow(); return; }
       tc++;
       inp.placeholder = w.slice(0, tc);
       grow();
