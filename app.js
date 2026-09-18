@@ -420,54 +420,47 @@
     const word = h1.firstElementChild;
     const go = $('#wishGo'), cur = $('.fill__cur', fill);
     const wOf = el => (el ? el.getBoundingClientRect().width + (parseFloat(getComputedStyle(el).marginLeft) || 0) : 0);
+    const widthOf = t => { ghost.textContent = t || ''; return ghost.offsetWidth; };
 
-    // скільки місця лишається самому полю: рядок мінус слово «Пошук», стрілка й курсор
+    // Скільки місця лишається самому полю в поточному кеглі.
     const room = () => {
       const cs = getComputedStyle(h1);
       const wrapped = cs.flexWrap !== 'nowrap';   // на телефоні поле займає окремий рядок
       const box = wrapped ? fill.clientWidth : h1.clientWidth - word.offsetWidth - (parseFloat(cs.columnGap) || 0);
-      return Math.max(90, box - wOf(go) - wOf(cur) - 8);
-    };
-    const widthOf = (text, size) => {
-      ghost.style.fontSize = size ? size + 'px' : '';
-      ghost.textContent = text || '';
-      const w = ghost.offsetWidth;
-      ghost.style.fontSize = '';
-      return w;
+      return Math.max(60, box - wOf(go) - wOf(cur) - 8);
     };
 
-    // Кегль підбираємо ОДИН раз — під найдовшу підказку. Тоді під час друку
-    // літери не змінюють розмір: рядок просто дописується, а не стискається.
-    let fit = 0;
-    const setFit = () => {
-      if (h1.clientWidth < 100) return;
-      const base = parseFloat(getComputedStyle(h1).fontSize);
-      const r = room();
-      const widest = WISHES.reduce((m, t) => Math.max(m, widthOf(t)), 1);
-      fit = widest > r ? Math.max(base * 0.4, base * r / (widest + 14)) : base;
-    };
-
+    // Ширина поля тягнеться за текстом. Кегль тут не чіпаємо — він спільний
+    // для всього рядка, тому «Пошук» і набраний текст завжди однакові.
     const grow = () => {
-      // вкладка згорнута або ще не розкладена — міряти нічого
-      if (h1.clientWidth < 100) return;
+      if (h1.clientWidth < 100) return true;
+      const w = widthOf(inp.value || inp.placeholder || '');
       const r = room();
-      const text = inp.value || inp.placeholder || '';
-      let size = fit;
-      // якщо вписали щось довше за найдовшу підказку — тільки тоді стискаємо далі
-      const w0 = widthOf(text, size);
-      if (w0 > r) size = Math.max(fit * 0.4, size * r / (w0 + 10));
-      inp.style.fontSize = size.toFixed(1) + 'px';
-      let w = widthOf(text, size);
-      // страховка за фактом, якщо розрахунок промахнувся
-      if (w > r) {
-        size = size * r / (w + 6);
-        inp.style.fontSize = size.toFixed(1) + 'px';
-        w = widthOf(text, size);
-      }
-      inp.style.width = Math.min(Math.max(w + 12, 90), r) + 'px';
+      inp.style.width = Math.min(w + 10, r) + 'px';
       fill.classList.toggle('is-typed', !!inp.value);
+      return w + 10 <= r;                        // чи вмістилось
     };
-    const relayout = () => { setFit(); grow(); };
+
+    // Кегль підбирається на ВЕСЬ рядок одразу — щоб найдовша підказка
+    // дописалась до кінця й нічого не обрізалось. Рахуємо раз: на старті,
+    // при зміні розміру вікна та коли долетить Archivo.
+    const relayout = () => {
+      if (h1.clientWidth < 100) return;
+      h1.style.fontSize = '';                    // спершу назад на базовий кегль
+      const cs = getComputedStyle(h1);
+      const base = parseFloat(cs.fontSize);
+      const wrapped = cs.flexWrap !== 'nowrap';
+      const gap = parseFloat(cs.columnGap) || 0;
+      const lead = wrapped ? 0 : word.offsetWidth + gap;   // слово «Пошук» у тому ж рядку
+      let longest = 0;
+      WISHES.concat(inp.value ? [inp.value] : []).forEach(t => { longest = Math.max(longest, widthOf(t)); });
+      const avail = (wrapped ? fill.clientWidth : h1.clientWidth) - wOf(go) - wOf(cur) - 14;
+      const need = lead + longest;
+      const size = need > avail ? Math.max(base * 0.3, base * avail / need) : base;
+      h1.style.fontSize = size.toFixed(1) + 'px';
+      grow();
+    };
+
     addEventListener('resize', relayout);
     // до завантаження Archivo заміри йдуть запасним шрифтом, а він вужчий
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
@@ -476,7 +469,7 @@
       if (s.length < 2) return [];
       return PRODUCTS.filter(p => hit(p, s));
     };
-    inp.addEventListener('input', grow);
+    inp.addEventListener('input', () => { if (!grow()) relayout(); });
     $('#wishGo').addEventListener('click', () => {
       const q = inp.value.trim();
       if (!q) { inp.focus(); return; }
