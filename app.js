@@ -133,7 +133,7 @@
         <div class="ft__cols">
           <div>
             <h4>${esc(CFG.claim)}</h4>
-            <p style="max-width:34ch;color:var(--mut-dk);font-size:14.5px;line-height:1.55">Привозимо з Європи те, чого немає в наявності: від пари кросівок до повного комплекту для команди.</p>
+            <p style="max-width:34ch;color:var(--mut-dk);font-size:14.5px;line-height:1.55">${esc(HEAD.footer_text)}</p>
             <div class="ft__soc">
               <a href="${esc(CFG.ig)}" target="_blank" rel="noopener" aria-label="Instagram">${icon('ig')}</a>
               <a href="${esc(CFG.tiktok)}" target="_blank" rel="noopener" aria-label="TikTok">${icon('tiktok')}</a>
@@ -168,6 +168,27 @@
       if (s) { e.preventDefault(); openSearch(); return; }
       const z = e.target.closest('[data-sizes]');
       if (z) { e.preventDefault(); openSizes(z.dataset.sizes); }
+    });
+  }
+
+  /* Блоки «заголовок + абзац + список», з яких складені сторінки доставки
+     та контактів. Малюються з масиву, тож в адмінці їх можна додавати. */
+  function blocks(sel, list) {
+    const el = $(sel);
+    if (!el) return;
+    el.innerHTML = (list || []).map(b => `<div>
+      <h3>${esc(b.t)}</h3>
+      ${b.d ? `<p>${esc(b.d)}</p>` : ''}
+      ${b.link ? `<p style="margin-top:14px"><a class="lnk" href="${esc(b.link)}" target="_blank" rel="noopener">${esc(b.linkText || b.link)}${icon('arrow')}</a></p>` : ''}
+      ${(b.list || []).length ? `<ul>${b.list.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+    </div>`).join('');
+  }
+
+  /* Заголовки й абзаци, підписані в розмітці через data-txt */
+  function heads() {
+    $$('[data-txt]').forEach(el => {
+      const v = HEAD[el.dataset.txt];
+      if (v != null && v !== '') el.innerHTML = v;
     });
   }
 
@@ -1151,7 +1172,14 @@
   /* ===========================================================
      ВІДСТЕЖЕННЯ ПОСИЛКИ (сторінка доставки)
      =========================================================== */
+  function contacts() {
+    blocks('#conBlocks', CONTACTS);
+  }
+
   function tracking() {
+    blocks('#dlvBlocks', DELIVERY);
+    blocks('#payBlocks', PAYMENT);
+    blocks('#retBlocks', RETURNS);
     /* таблиця розмірів прямо на сторінці */
     const rz = $('#szGuide');
     if (rz) sizeUI(rz, 'top');
@@ -1179,7 +1207,8 @@
   }
 
   /* ---------- запуск ---------- */
-  document.addEventListener('DOMContentLoaded', () => {
+  function boot() {
+    heads();
     chrome();
     try {
       if (page === 'index') home();
@@ -1187,8 +1216,17 @@
       else if (page === 'tovar') product();
       else if (page === 'koshyk') checkout();
       else if (page === 'dostavka') tracking();
+      else if (page === 'kontakty') contacts();
     } catch (err) {
       console.error(err);
     }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // якщо сайт підключений до адмінки — спершу дочекатись свіжого вмісту,
+    // щоб сторінка малювалась один раз, а не перемальовувалась на очах
+    const ready = window.JS_DATA_READY;
+    if (ready && ready.then) ready.then(boot, boot);
+    else boot();
   });
 })();
