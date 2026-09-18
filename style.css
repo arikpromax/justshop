@@ -566,3 +566,7 @@ ul,ol{padding:0;list-style:none}
   .flt label{padding:9px 0}
   .szm__tabs button{padding:11px 17px}
 }
+
+/* довантаження каталогу */
+.more{display:flex;justify-content:center;padding:clamp(22px,3vw,34px) 0 4px}
+.more[hidden]{display:none}

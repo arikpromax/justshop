@@ -605,6 +605,9 @@
       </div>
       <div class="act" id="act"></div>
       <div class="grid" id="grid"></div>
+      <div class="more" id="more" hidden>
+        <button class="btn btn--gh" type="button" id="moreBtn">Показати ще</button>
+      </div>
       <div class="empty" id="none" hidden>
         <p class="dsp h-md">Під ці умови нічого немає</p>
         <p>Приберіть частину фільтрів — або замовте пошук: дістанемо потрібну модель з європейських магазинів.</p>
@@ -658,6 +661,22 @@
     drw.addEventListener('click', e => { if (e.target.closest('[data-drwx]')) closeDrw(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && drw.classList.contains('on')) closeDrw(); });
 
+    /* Каталог може бути на сотні позицій, тому малюємо порціями:
+       перша порція одразу, решта — коли низ списку зʼявляється на екрані.
+       Кнопка лишається як запасний шлях, якщо стеження не спрацює. */
+    const STEP = 36;
+    let found = [];
+    let shown = 0;
+
+    function draw(reset) {
+      const g = $('#grid'), more = $('#more');
+      if (reset) { g.innerHTML = ''; shown = 0; }
+      const next = found.slice(shown, shown + STEP);
+      if (next.length) g.insertAdjacentHTML('beforeend', next.map(card).join(''));
+      shown += next.length;
+      more.hidden = shown >= found.length;
+    }
+
     function apply() {
       let list = PRODUCTS.slice();
       const s = norm(st.q);
@@ -676,9 +695,10 @@
 
       const g = $('#grid');
       g.className = 'grid' + (st.view === 'list' ? ' grid--list' : '');
-      g.innerHTML = list.map(card).join('');
       g.hidden = !list.length;
       $('#none').hidden = !!list.length;
+      found = list;
+      draw(true);
 
       const word = list.length === 1 ? 'позиція'
         : list.length % 10 > 1 && list.length % 10 < 5 && (list.length < 10 || list.length > 20) ? 'позиції' : 'позицій';
@@ -761,6 +781,23 @@
       e.currentTarget.setAttribute('aria-label', inList ? 'Показати сіткою' : 'Показати списком');
       apply();
     });
+    $('#moreBtn').addEventListener('click', () => draw(false));
+    /* Довантаження на ходу. Основний шлях — спостерігач за низом списку;
+       поруч простий перегляд при прокрутці, бо в деяких оболонках
+       (вбудовані браузери застосунків) спостерігач мовчить. */
+    const maybeMore = () => {
+      const more = $('#more');
+      if (!more || more.hidden) return;
+      const top = more.getBoundingClientRect().top;
+      if (top < innerHeight + 600) draw(false);
+    };
+    addEventListener('scroll', maybeMore, { passive: true });
+
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(e => {
+        if (e[0].isIntersecting && !$('#more').hidden) draw(false);
+      }, { rootMargin: '600px 0px' }).observe($('#more'));
+    }
     $('#fltReset').addEventListener('click', resetAll);
     $('#nonewish').addEventListener('click', resetAll);
 
