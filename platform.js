@@ -64,6 +64,7 @@
         img: r.image_url || '',
         stock: x.stock !== false && x.stock !== 'false',
         weight: Number(String(x.weight || '').replace(',', '.')) || 0,
+        sku: String(x.sku || '').trim(),
         desc: r.text || ''
       };
     }));

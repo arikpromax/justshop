@@ -13,7 +13,9 @@
   const page = document.body.dataset.page || '';
   const byId = id => PRODUCTS.find(p => p.id === id);
   const catName = id => (CATS.find(c => c.id === id) || {}).name || '';
-  const sku = p => 'JS-' + String(PRODUCTS.indexOf(p) + 101);
+  // якщо в товару є артикул постачальника — показуємо його: за ним шукають
+  // і власник, і покупець. Немає — власний номер по порядку.
+  const sku = p => (p.sku ? p.sku : 'JS-' + String(PRODUCTS.indexOf(p) + 101));
   /* «Arc'teryx», «arc teryx» і «ARCTERYX» мають знаходити те саме */
   const norm = s => String(s).toLowerCase().replace(/['’ʼ`]/g, '').replace(/[^0-9a-zа-яіїєґ]+/g, ' ').trim();
   const hay = p => norm(p.brand + ' ' + p.name + ' ' + catName(p.cat) + ' ' + (p.colors || []).join(' '));
