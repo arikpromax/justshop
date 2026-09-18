@@ -226,10 +226,13 @@ ul,ol{padding:0;list-style:none}
 .empty p{color:var(--mut);margin:10px auto 20px;max-width:46ch}
 
 /* режим списком */
-.grid--list{grid-template-columns:1fr;background:var(--line)}
+/* специфічність вища за мобільну сітку — список завжди в одну колонку */
+.grid.grid--list{grid-template-columns:1fr;background:var(--line)}
 .grid--list .card{flex-direction:row;align-items:stretch}
-.grid--list .plate{width:150px;aspect-ratio:auto;flex:none}
-.grid--list .szrow{position:static;transform:none;background:none;padding:0;backdrop-filter:none;margin-top:6px}
+/* у списку фото теж має бути видно, тому плитка росте з шириною екрана */
+.grid--list .plate{width:clamp(132px,15vw,210px);aspect-ratio:1/1.1;height:auto;flex:none}
+/* у списку розміри ховаємо — плитка для них завузька, і бейджі на них налазили */
+.grid--list .szrow{display:none}
 .grid--list .card__b{padding:18px 20px}
 .grid--list .card__p{padding-top:14px}
 
@@ -378,7 +381,7 @@ ul,ol{padding:0;list-style:none}
   .grid,.grid--3{grid-template-columns:repeat(2,1fr)}
   .fgrid{grid-template-columns:1fr}
   .ft__cols{grid-template-columns:1fr;gap:22px}
-  .grid--list .plate{width:108px}
+  .grid--list .plate{width:112px}
   .hero__h{font-size:clamp(30px,10vw,52px)}
   .card__b{padding:11px 11px 13px}
   .card__n{font-size:13.5px}

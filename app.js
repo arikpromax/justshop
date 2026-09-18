@@ -529,8 +529,7 @@
               <option value="sale">Найбільша знижка</option>
             </select>${icon('chev')}
           </span>
-          <button class="iconbtn" type="button" data-view="grid" aria-pressed="true" aria-label="Сіткою">${icon('grid')}</button>
-          <button class="iconbtn" type="button" data-view="list" aria-pressed="false" aria-label="Списком">${icon('rows')}</button>
+          <button class="iconbtn" type="button" id="viewToggle" aria-label="Показати списком">${icon('rows')}</button>
         </div>
       </div>
       <div class="act" id="act"></div>
@@ -683,11 +682,14 @@
     let qt = 0;
     q.addEventListener('input', () => { clearTimeout(qt); qt = setTimeout(() => { st.q = q.value; apply(); }, 260); });
     $('#sort').addEventListener('change', e => { st.sort = e.target.value; apply(); });
-    $$('[data-view]').forEach(b => b.addEventListener('click', () => {
-      st.view = b.dataset.view;
-      $$('[data-view]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.view === st.view)));
+    // один перемикач: натиснув — список, натиснув ще раз — назад у сітку
+    $('#viewToggle').addEventListener('click', e => {
+      st.view = st.view === 'grid' ? 'list' : 'grid';
+      const inList = st.view === 'list';
+      e.currentTarget.innerHTML = icon(inList ? 'grid' : 'rows');
+      e.currentTarget.setAttribute('aria-label', inList ? 'Показати сіткою' : 'Показати списком');
       apply();
-    }));
+    });
     $('#fltReset').addEventListener('click', resetAll);
     $('#nonewish').addEventListener('click', resetAll);
 
