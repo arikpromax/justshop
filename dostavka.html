@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Доставка, оплата, обмін — Just shop</title>
+<meta name="description" content="Доставка Новою Поштою по Україні: відділення, поштомат, курʼєр. Самовивіз у Києві. Оплата на картку ФОП або наложеним платежем. Обмін 14 днів, розмірна сітка, відстеження посилки.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,500..900&family=Inter+Tight:wght@400..600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/favicon.png">
+</head>
+<body data-page="dostavka">
+
+<div class="tick" id="tick"></div>
+<header id="hdr"></header>
+
+<main class="page">
+  <div class="wrap">
+    <div class="page__h">
+      <p class="mono" style="color:var(--mut)">Як це працює</p>
+      <h1 class="dsp h-lg" style="margin-top:10px">Доставка<br>й оплата</h1>
+      <p class="lead" style="margin-top:16px;max-width:54ch">Відправляємо в день оплати, якщо річ у наявності. Замовлення під запит їде після викупу в Європі — це 3—10 днів разом із дорогою.</p>
+    </div>
+
+    <!-- НОВА ПОШТА -->
+    <h2 class="dsp h-md" style="margin-bottom:18px">Нова Пошта по Україні</h2>
+    <div class="cols2">
+      <div>
+        <h3>Відділення</h3>
+        <p>Найдешевший і найшвидший спосіб. Місто й номер відділення підставляються в кошику з бази Нової Пошти — помилитися в адресі неможливо.</p>
+        <ul>
+          <li>1—2 дні по Україні</li>
+          <li>Тариф НП, оплачується при отриманні</li>
+          <li>Від 3 000 грн доставку оплачуємо ми</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Поштомат</h3>
+        <p>Зручно, якщо не встигаєте на відділення: посилка чекає у скриньці, код приходить у СМС.</p>
+        <ul>
+          <li>Забрати можна цілодобово</li>
+          <li>Обмеження за розміром — великі куртки й коробки не поміщаються</li>
+          <li>Зберігання до 3 днів</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Курʼєр Нової Пошти</h3>
+        <p>Привезуть на вашу адресу. Вкажіть у коментарі підʼїзд, поверх і зручний час — передамо перевізнику.</p>
+        <ul>
+          <li>Тариф НП + послуга адресної доставки</li>
+          <li>Дзвінок за 30—60 хвилин до приїзду</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Самовивіз, Київ</h3>
+        <p>Безкоштовно. Точну адресу й час надсилаємо після підтвердження замовлення — можна приміряти на місці.</p>
+        <ul>
+          <li>0 грн</li>
+          <li>Щодня 10:00 — 21:00</li>
+          <li>Приміряти можна перед оплатою</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ОПЛАТА -->
+    <h2 class="dsp h-md" style="margin:clamp(40px,6vw,74px) 0 18px">Оплата</h2>
+    <div class="cols2">
+      <div>
+        <h3>На картку ФОП</h3>
+        <p>Реквізити надсилаємо після того, як підтвердимо наявність і розмір. За потреби даємо чек.</p>
+        <ul>
+          <li>Речі в наявності — 100% перед відправленням</li>
+          <li>Речі під запит — 50% передоплати, решта перед відправкою з Європи</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Наложений платіж</h3>
+        <p>Оплата при отриманні на відділенні. Нова Пошта бере власну комісію за переказ грошей — це не наша націнка.</p>
+        <ul>
+          <li>Доступно для замовлень із наявності</li>
+          <li>Для речей під запит — після передоплати 50%</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ВІДСТЕЖЕННЯ -->
+    <section id="trek" style="margin-top:clamp(40px,6vw,74px)">
+      <h2 class="dsp h-md" style="margin-bottom:8px">Відстежити посилку</h2>
+      <p class="lead" style="max-width:48ch">Введіть номер накладної — покажемо статус прямо тут, без переходу на сайт перевізника.</p>
+      <div class="trk">
+        <input id="trkNo" inputmode="numeric" placeholder="59000 000 000 000" aria-label="Номер накладної">
+        <button class="btn" type="button" id="trkGo">Перевірити</button>
+      </div>
+      <p class="trkres" id="trkOut"></p>
+    </section>
+
+    <!-- РОЗМІРИ -->
+    <section id="rozmiry" style="margin-top:clamp(40px,6vw,74px)">
+      <h2 class="dsp h-md" style="margin-bottom:8px">Розмірна сітка</h2>
+      <p class="lead" style="max-width:54ch">Виміри самої речі в сантиметрах. Якщо ви між двома розмірами — беріть більший: майже весь streetwear шиють вільно.</p>
+      <div id="szGuide"></div>
+    </section>
+
+    <!-- ПОВЕРНЕННЯ -->
+    <section id="povernennia" style="margin-top:clamp(40px,6vw,74px)">
+      <h2 class="dsp h-md" style="margin-bottom:18px">Обмін і повернення</h2>
+      <div class="cols2">
+        <div>
+          <h3>14 днів на обмін</h3>
+          <p>Якщо річ не носили, вигляд і бірки збережені, а пакування ціле — міняємо на інший розмір або колір.</p>
+          <ul>
+            <li>Напишіть у Telegram або Instagram із номером замовлення</li>
+            <li>Доставку на обмін ділимо навпіл</li>
+            <li>Речі під індивідуальний запит — умови узгоджуємо до викупу</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Якщо щось не так</h3>
+          <p>Розпакуйте посилку на відділенні й перевірте вміст. Помилилися ми — відправлення й повернення за наш рахунок.</p>
+          <ul>
+            <li>Прийшов не той розмір або модель — міняємо без питань</li>
+            <li>Заводський брак — повертаємо повну суму</li>
+            <li>Шкарпетки й білизна обміну не підлягають</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer id="ft"></footer>
+
+<script src="sprite.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

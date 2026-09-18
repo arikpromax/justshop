@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Just shop — оригінальні речі з Європи | Знайдемо будь-яку річ</title>
+<meta name="description" content="Оригінальний одяг і взуття з Європи: Nike, adidas, Stone Island, The North Face. Знайдемо будь-яку модель під запит. Доставка Новою Поштою по Україні, самовивіз у Києві.">
+<meta property="og:title" content="Just shop — оригінальні речі з Європи">
+<meta property="og:description" content="Знайдемо будь-яку річ або пару взуття. Нова Пошта по Україні, самовивіз у Києві.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,500..900&family=Inter+Tight:wght@400..600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/favicon.png">
+</head>
+<body data-page="index">
+
+<div class="tick" id="tick"></div>
+<header id="hdr"></header>
+
+<!-- ГОЛОВНИЙ ЕКРАН: рядок, який дописує сам відвідувач -->
+<section class="hero">
+  <div class="hero__in">
+    <div class="hero__kick">
+      <span>Just shop · Київ</span>
+      <span>Офіційний партнер <b>ФК «Ростянець»</b> · <b>ФК Rebel Київ</b></span>
+    </div>
+
+    <h1 class="hero__h">
+      <span>Пошук</span>
+      <span class="fill" id="fill">
+        <label class="sr" for="wish">Що шукаєте</label>
+        <span class="fill__line">
+          <input id="wish" type="text" autocomplete="off" spellcheck="false">
+          <span class="fill__ghost" id="wishGhost" aria-hidden="true"></span>
+          <span class="fill__cur" aria-hidden="true"></span>
+        </span>
+        <button class="fill__go" id="wishGo" type="button" aria-label="Шукати">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15.5M13.5 6l6 6-6 6"/></svg>
+        </button>
+      </span>
+    </h1>
+
+    <div class="chips">
+      <button class="chip" type="button" data-q="Nike Tech Fleece">Nike Tech Fleece</button>
+      <button class="chip" type="button" data-q="adidas Samba">adidas Samba</button>
+      <button class="chip" type="button" data-q="Stone Island">Stone Island</button>
+      <button class="chip" type="button" data-q="The North Face">The North Face</button>
+      <button class="chip" type="button" data-q="New Balance">New Balance</button>
+      <button class="chip" type="button" data-q="Salomon">Salomon</button>
+    </div>
+  </div>
+</section>
+
+<div class="railwrap"><nav class="rail" id="rail" aria-label="Категорії"></nav></div>
+
+<!-- РОЗПРОДАЖ -->
+<section class="sec sec--flat" id="saleSec">
+  <div class="wrap">
+    <div class="sechead">
+      <h2 class="dsp h-lg">Розпродаж</h2>
+      <div class="carn">
+        <button class="iconbtn" type="button" data-car="prev" aria-label="Назад"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(180deg)"><path d="M4 12h15.5M13.5 6l6 6-6 6"/></svg></button>
+        <button class="iconbtn" type="button" data-car="next" aria-label="Далі"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15.5M13.5 6l6 6-6 6"/></svg></button>
+      </div>
+    </div>
+    <div class="car" id="sale"></div>
+  </div>
+</section>
+
+<!-- КАТАЛОГ -->
+<section class="sec sec--flat">
+  <div class="wrap">
+    <div class="sechead">
+      <h2 class="dsp h-lg">Каталог</h2>
+    </div>
+    <div id="shop"></div>
+  </div>
+</section>
+
+<!-- КЛУБИ -->
+<section class="sec">
+  <div class="wrap">
+    <div class="sechead">
+      <div>
+        <p class="mono">Команди</p>
+        <h2 class="dsp h-lg" style="margin-top:10px">Екіпіруємо<br>футбольні клуби</h2>
+      </div>
+    </div>
+    <div class="clubs" id="clubs"></div>
+  </div>
+</section>
+
+<!-- ПИТАННЯ -->
+<section class="sec sec--grey">
+  <div class="wrap">
+    <div class="sechead">
+      <h2 class="dsp h-lg">Часті питання</h2>
+      <a class="lnk" href="kontakty.html">Не знайшли відповідь<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15.5M13.5 6l6 6-6 6"/></svg></a>
+    </div>
+    <div class="faq" id="faq"></div>
+  </div>
+</section>
+
+<footer id="ft"></footer>
+
+<script src="sprite.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
