@@ -24,7 +24,9 @@
   const CART_KEY = 'js_cart_v1';
   const readCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY)) || []; } catch (e) { return []; } };
   const writeCart = c => { try { localStorage.setItem(CART_KEY, JSON.stringify(c)); } catch (e) {} paintCount(); };
-  let cart = readCart().filter(l => byId(l.id));
+  // Відсіювати позиції, яких уже немає в каталозі, можна тільки після того,
+  // як прийдуть дані з адмінки — інакше кошик чиститься об застарілий список.
+  let cart = readCart();
 
   function addToCart(id, size, qty) {
     const line = cart.find(l => l.id === id && l.size === size);
@@ -382,15 +384,18 @@
     return !msg;
   }
 
-  /* відправлення: вебхук, якщо налаштований; інакше — буфер обміну */
-  function send(text, kind) {
+  /* Відправлення замовлення.
+     text — готовий людський текст (його ж кладемо в буфер обміну).
+     data — те саме, але розібране на поля: саме з нього бот створює накладну,
+     бо там лежать внутрішні коди міста й відділення з бази Нової Пошти. */
+  function send(text, kind, data) {
     try {
       if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
     } catch (e) {}
     if (CFG.orderWebhook) {
       fetch(CFG.orderWebhook, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, text, at: new Date().toISOString() })
+        body: JSON.stringify({ kind, text, data: data || null, at: new Date().toISOString() })
       }).catch(() => {});
     }
   }
@@ -1148,7 +1153,39 @@
         $('#fNote').value.trim() ? 'Коментар: ' + $('#fNote').value.trim() : ''
       ]).filter(x => x !== '').join('\n');
 
-      send(text, 'order');
+      /* Розібране замовлення для бота: типи доставки НП підписані так,
+         як їх називає сама НП, а коди міста й відділення вже перевірені. */
+      const NP_SERVICE = { np_branch: 'WarehouseWarehouse', np_postomat: 'WarehouseWarehouse', np_courier: 'WarehouseDoors' };
+      const goods = cart.map(l => {
+        const it = byId(l.id);
+        return {
+          id: it.id, brand: it.brand, name: it.name, size: l.size, qty: l.qty,
+          price: it.price, sum: Math.round(it.price * l.qty),
+          weight: Number(it.weight) || Number(CFG.weightDefault) || 0.5
+        };
+      });
+      send(text, 'order', {
+        no: no,
+        sum: Math.round(cartSum()),
+        weight: Math.round(goods.reduce((s, g) => s + g.weight * g.qty, 0) * 100) / 100,
+        seats: goods.reduce((s, g) => s + g.qty, 0),
+        items: goods,
+        delivery: {
+          method: form.dlv,
+          name: d.n,
+          service: NP_SERVICE[form.dlv] || '',
+          city: form.dlv === 'pickup' ? '' : $('#fCity').value.trim(),
+          cityRef: form.cityRef || '',
+          branch: form.dlv === 'pickup' ? '' : $('#fBr').value.trim(),
+          branchRef: form.brRef || ''
+        },
+        payment: { id: form.pay, name: p.n, cod: form.pay === 'cod' },
+        buyer: {
+          name: $('#fName').value.trim(),
+          phone: $('#fTel').value.trim(),
+          note: $('#fNote').value.trim()
+        }
+      });
       cart = []; writeCart(cart);
 
       $('#co').outerHTML = `<div class="done" id="done">
@@ -1208,6 +1245,8 @@
 
   /* ---------- запуск ---------- */
   function boot() {
+    cart = cart.filter(l => byId(l.id));
+    paintCount();
     heads();
     chrome();
     try {
