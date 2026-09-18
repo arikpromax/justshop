@@ -430,12 +430,12 @@
       const max = Math.max(90, box - wOf(go) - wOf(cur) - 8);
       const gw = ghost.offsetWidth;
       // рядок ніколи не переноситься, інакше банер стрибав би на кожну довшу підказку;
-      // тому на вузькому екрані довгий текст не ріжемо, а зменшуємо кегль
-      const scale = wrapped && gw > max ? Math.max(0.42, max / (gw + 12)) : 1;
+      // тому довгий текст не ріжемо, а зменшуємо кегль — на будь-якій ширині
+      const scale = gw > max ? Math.max(0.42, max / (gw + 12)) : 1;
       inp.style.fontSize = scale < 1 ? (parseFloat(cs.fontSize) * scale).toFixed(1) + 'px' : '';
       inp.style.width = Math.min(Math.max(gw * scale + 16, 90), max) + 'px';
       // якщо підбір промахнувся на пару пікселів — дотискаємо за фактом
-      if (wrapped && inp.scrollWidth > inp.clientWidth + 1) {
+      if (inp.scrollWidth > inp.clientWidth + 1) {
         const k = inp.clientWidth / inp.scrollWidth;
         inp.style.fontSize = (parseFloat(getComputedStyle(inp).fontSize) * k * 0.97).toFixed(1) + 'px';
       }
