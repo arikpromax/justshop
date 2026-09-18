@@ -30,7 +30,7 @@ const CFG = {
 
   // Банер головної: фото в один рядок, як смуга. Кладіть у img/ і перелічіть тут.
   // Порожній масив — герой лишається просто темним, нічого не ламається.
-  hero: ['img/image-1.webp', 'img/image-2.webp', 'img/image-3.png', 'img/image-4.webp'],
+  hero: ['img/image-1.webp', 'img/image-2.webp', 'img/image-3.webp', 'img/image-4.webp'],
 
 
   freeFrom: 3000                   // безкоштовна доставка від суми, грн (0 — вимкнути)

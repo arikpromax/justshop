@@ -387,18 +387,29 @@
     wrap.className = 'hero__pics';
     hero.prepend(wrap);
     hero.classList.add('hero--pics');
-    list.forEach(src => {
-      const im = new Image();
-      im.alt = '';
-      im.setAttribute('aria-hidden', 'true');
-      // слухач вішаємо до src, інакше 404 із localhost встигає спрацювати раніше
-      im.addEventListener('error', () => {
-        im.remove();
-        if (!wrap.children.length) { wrap.remove(); hero.classList.remove('hero--pics'); }
-      });
-      im.src = src;
-      wrap.appendChild(im);
-    });
+
+    // на телефоні видно одну панель, на планшеті дві — решту й не вантажимо,
+    // бо display:none картинку не зупиняє, вона все одно качається
+    const need = () => (innerWidth <= 560 ? 1 : innerWidth <= 900 ? 2 : list.length);
+    let made = 0;
+    const build = () => {
+      const n = Math.min(need(), list.length);
+      for (; made < n; made++) {
+        const im = new Image();
+        im.alt = '';
+        im.setAttribute('aria-hidden', 'true');
+        // слухач вішаємо до src, інакше 404 із localhost встигає спрацювати раніше
+        im.addEventListener('error', () => {
+          im.remove();
+          if (!wrap.children.length) { wrap.remove(); hero.classList.remove('hero--pics'); }
+        });
+        im.src = list[made];
+        wrap.appendChild(im);
+      }
+    };
+    build();
+    let rt = 0;
+    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(build, 250); });
   }
 
   function home() {

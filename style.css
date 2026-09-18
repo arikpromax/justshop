@@ -549,3 +549,16 @@ ul,ol{padding:0;list-style:none}
 .co2__foot .btn{background:var(--acc);border-color:var(--acc)}
 .co2__foot .btn:hover{background:#fff;border-color:#fff;color:var(--ink)}
 @media (max-width:860px){.co2__g{grid-template-columns:1fr}}
+
+/* ---------- телефон: цілі під палець ---------- */
+@media (max-width:640px){
+  .iconbtn{width:44px;height:44px}
+  .chip{padding:11px 16px}
+  .szpick button{min-width:48px;height:42px}
+  .qty button{width:40px;height:40px}
+  .act button{padding:9px 13px}
+  .ft li+li{margin-top:13px}
+  .ft__cols li a{display:inline-block;padding:3px 0}
+  .flt label{padding:9px 0}
+  .szm__tabs button{padding:11px 17px}
+}
