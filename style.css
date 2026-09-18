@@ -382,7 +382,7 @@ ul,ol{padding:0;list-style:none}
   .fgrid{grid-template-columns:1fr}
   .ft__cols{grid-template-columns:1fr;gap:22px}
   .grid--list .plate{width:112px}
-  .hero__h{font-size:clamp(30px,10vw,52px)}
+  .hero__h{font-size:clamp(26px,8.4vw,46px)}
   .card__b{padding:11px 11px 13px}
   .card__n{font-size:13.5px}
   .bar.on{display:flex}

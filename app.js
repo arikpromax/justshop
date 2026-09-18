@@ -418,17 +418,27 @@
     const inp = $('#wish'), ghost = $('#wishGhost'), fill = $('#fill');
     const h1 = fill.parentElement;
     const word = h1.firstElementChild;
+    const go = $('#wishGo'), cur = $('.fill__cur', fill);
+    const wOf = el => (el ? el.getBoundingClientRect().width + (parseFloat(getComputedStyle(el).marginLeft) || 0) : 0);
     const grow = () => {
+      ghost.style.fontSize = '';
       ghost.textContent = inp.value || inp.placeholder || '';
-      // ширина тягнеться за текстом, але рядок ніколи не переноситься,
-      // інакше банер стрибав би на кожну довшу підказку
       const cs = getComputedStyle(h1);
-      const extra = fill.offsetWidth - inp.offsetWidth;            // курсор + стрілка
-      const taken = cs.flexWrap === 'nowrap'
-        ? word.offsetWidth + (parseFloat(cs.columnGap) || 0)
-        : 0;
-      const max = Math.max(90, h1.clientWidth - taken - extra - 6);
-      inp.style.width = Math.min(Math.max(ghost.offsetWidth + 18, 90), max) + 'px';
+      const wrapped = cs.flexWrap !== 'nowrap';   // на телефоні поле займає окремий рядок
+      // скільки місця лишається полю: рядок мінус слово «Пошук», стрілка й курсор
+      const box = wrapped ? fill.clientWidth : h1.clientWidth - word.offsetWidth - (parseFloat(cs.columnGap) || 0);
+      const max = Math.max(90, box - wOf(go) - wOf(cur) - 8);
+      const gw = ghost.offsetWidth;
+      // рядок ніколи не переноситься, інакше банер стрибав би на кожну довшу підказку;
+      // тому на вузькому екрані довгий текст не ріжемо, а зменшуємо кегль
+      const scale = wrapped && gw > max ? Math.max(0.42, max / (gw + 12)) : 1;
+      inp.style.fontSize = scale < 1 ? (parseFloat(cs.fontSize) * scale).toFixed(1) + 'px' : '';
+      inp.style.width = Math.min(Math.max(gw * scale + 16, 90), max) + 'px';
+      // якщо підбір промахнувся на пару пікселів — дотискаємо за фактом
+      if (wrapped && inp.scrollWidth > inp.clientWidth + 1) {
+        const k = inp.clientWidth / inp.scrollWidth;
+        inp.style.fontSize = (parseFloat(getComputedStyle(inp).fontSize) * k * 0.97).toFixed(1) + 'px';
+      }
       fill.classList.toggle('is-typed', !!inp.value);
     };
     addEventListener('resize', grow);
