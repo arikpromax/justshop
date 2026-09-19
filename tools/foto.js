@@ -1,21 +1,22 @@
 /* ============================================================
-   ФОТО ТОВАРІВ — обробка того, що ви поклали в теку «fotoi».
+   ФОТО ТОВАРІВ
 
    Як користуватись:
-     1. Зберігаєте картинку під іменем артикула: IB3082-001.jpg
+     1. Зберігаєте картинку під іменем артикула — IB3082-001.jpg
         (будь-який формат, будь-який розмір, фон неважливий).
-     2. Кладете її в теку fotoi.
+     2. Кладете її просто в теку img/p.
      3. Запускаєте ФОТО.bat.
 
-   Далі все робиться само: картинка обрізається по товару, стає
-   квадратом на білому, кросівки розвертаються носком уліво, файл
-   стискається у webp і лягає в img/p під правильним іменем.
-   Оригінал переїжджає в fotoi/готово, щоб не оброблявся двічі.
-   Наприкінці зміни йдуть на сайт.
+   Далі само: картинка обрізається по товару, стає квадратом на білому,
+   кросівки розвертаються носком уліво, файл стискається у webp під
+   іменем артикула, а вихідний файл прибирається. Наприкінці зміни
+   їдуть на сайт.
 
-   Артикул звіряється з базою: якщо такого товару немає, файл не
-   обробляється, а ім'я виводиться в списку помилок — значить,
-   в імені одрук.
+   Артикул звіряється з базою. Не впізнав — файл не чіпається, а імʼя
+   виводиться в списку помилок: значить, в імені одрук.
+
+   Уже оброблені фото (квадратні webp) тулиться не буде — скрипт бере
+   лише те, що ви щойно поклали.
    ============================================================ */
 
 const fs = require("fs");
@@ -23,9 +24,7 @@ const path = require("path");
 const { execSync } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const IN = path.join(ROOT, "fotoi");
-const OUT = path.join(ROOT, "img", "p");
-const DONE = path.join(IN, "готово");
+const DIR = path.join(ROOT, "img", "p");
 const SIDE = 1200;
 
 const DB = "https://ortiatyxntdikaldepbp.supabase.co/rest/v1";
@@ -46,7 +45,7 @@ try {
   }
 }
 
-const KINDS = /\.(jpe?g|png|webp|gif|bmp|avif|heic)$/i;
+const KINDS = /\.(jpe?g|png|webp|gif|bmp|avif|heic|tiff?)$/i;
 
 /* Куди дивиться кросівок: найвища точка профілю — це халява біля пʼяти,
    тож коли вона ліворуч, взуття дивиться вправо і його треба дзеркалити. */
@@ -76,18 +75,9 @@ async function facesRight(buf) {
 }
 
 async function main() {
-  fs.mkdirSync(IN, { recursive: true });
-  fs.mkdirSync(OUT, { recursive: true });
+  fs.mkdirSync(DIR, { recursive: true });
 
-  const files = fs.readdirSync(IN).filter((f) => KINDS.test(f));
-  if (!files.length) {
-    console.log("\n  У теці fotoi немає картинок.");
-    console.log("  Покладіть їх туди з іменем артикула — напр. IB3082-001.jpg\n");
-    return;
-  }
-  console.log("\n  Знайшов картинок: " + files.length + "\n");
-
-  /* список товарів із бази: щоб звірити артикул і знати, чи це взуття */
+  /* список товарів: звірити артикул і знати, чи це взуття */
   let items = [];
   try {
     const r = await fetch(
@@ -96,7 +86,7 @@ async function main() {
     );
     items = await r.json();
   } catch (e) {
-    console.log("  Не дістався до бази — артикули не звірятиму, оброблю як є.\n");
+    console.log("\n  Не дістався до бази — артикули не звірятиму, оброблю як є.");
   }
   const bySku = new Map();
   items.forEach((x) => {
@@ -104,14 +94,36 @@ async function main() {
     if (s) bySku.set(s.toUpperCase(), { sku: s, cat: (x.extra || {}).cat || "", title: x.title });
   });
 
+  /* що саме обробляти: усе, крім уже готових квадратних webp */
+  const todo = [];
+  for (const f of fs.readdirSync(DIR)) {
+    if (f === "index.json" || !KINDS.test(f)) continue;
+    const full = path.join(DIR, f);
+    if (/\.webp$/i.test(f)) {
+      try {
+        const m = await sharp(fs.readFileSync(full)).metadata();
+        if (Math.abs(m.width / m.height - 1) < 0.02) continue; // квадрат — уже оброблене
+      } catch (e) { /* не відкрилось — хай іде в обробку */ }
+    }
+    todo.push(f);
+  }
+
+  if (!todo.length) {
+    console.log("\n  Нових картинок немає.");
+    console.log("  Покладіть їх у img/p з іменем артикула — напр. IB3082-001.jpg\n");
+    return;
+  }
+  console.log("\n  Нових картинок: " + todo.length + "\n");
+
   const ok = [], bad = [];
-  for (const f of files) {
+  for (const f of todo) {
     const name = path.basename(f, path.extname(f)).trim();
     const found = bySku.size ? bySku.get(name.toUpperCase()) : { sku: name, cat: "", title: "" };
     if (!found) { bad.push(f); continue; }
 
+    const full = path.join(DIR, f);
     try {
-      const src = fs.readFileSync(path.join(IN, f));
+      const src = fs.readFileSync(full);
       const cut = await sharp(src)
         .flatten({ background: "#ffffff" })
         .trim({ threshold: 12 })
@@ -135,10 +147,10 @@ async function main() {
       if (side < 1100) img = img.sharpen({ sigma: 0.8, m1: 0.5, m2: 2 });
       const out = await img.webp({ quality: 88 }).toBuffer();
 
-      fs.writeFileSync(path.join(OUT, found.sku + ".webp"), out);
-      fs.mkdirSync(DONE, { recursive: true });
-      fs.renameSync(path.join(IN, f), path.join(DONE, f));
-      ok.push({ sku: found.sku, px: side, kb: Math.round(out.length / 1024), title: found.title });
+      const dest = path.join(DIR, found.sku + ".webp");
+      fs.writeFileSync(dest, out);
+      if (path.resolve(full) !== path.resolve(dest)) fs.unlinkSync(full);
+      ok.push(found.sku);
       console.log("   ✔ " + found.sku.padEnd(16) + side + "px  " + Math.round(out.length / 1024) + " КБ  " +
         String(found.title).slice(0, 34));
     } catch (e) {
@@ -149,25 +161,25 @@ async function main() {
   if (!ok.length) {
     console.log("\n  Нічого не обробилось.");
     if (bad.length) console.log("  Не впізнав: " + bad.join(", "));
+    console.log("");
     return;
   }
 
   /* перелік фото — за ним сайт підставляє картинки товарам */
-  const list = fs.readdirSync(OUT).filter((f) => f.endsWith(".webp")).map((f) => f.replace(/\.webp$/, ""));
-  fs.writeFileSync(path.join(OUT, "index.json"), JSON.stringify(list));
+  const list = fs.readdirSync(DIR).filter((f) => f.endsWith(".webp")).map((f) => f.replace(/\.webp$/, ""));
+  fs.writeFileSync(path.join(DIR, "index.json"), JSON.stringify(list));
 
   console.log("\n  Оброблено: " + ok.length + " | усього фото на сайті: " + list.length);
   if (bad.length) {
     console.log("\n  Не впізнав артикул у файлах:");
     bad.forEach((b) => console.log("   ✗ " + b));
-    console.log("  Перевірте ім'я файлу — воно має точно збігатися з артикулом у картці товару.");
+    console.log("  Перевірте імʼя — воно має точно збігатися з артикулом у картці товару.");
   }
 
-  /* викладаємо на сайт */
   try {
     console.log("\n  Викладаю на сайт…");
     execSync("git add img/p", { cwd: ROOT, stdio: "pipe" });
-    execSync('git commit -m "Фото товарів: +' + ok.length + ' (' + ok.map((o) => o.sku).slice(0, 6).join(", ") + ')"',
+    execSync('git commit -m "Фото товарів: +' + ok.length + " (" + ok.slice(0, 6).join(", ") + ')"',
       { cwd: ROOT, stdio: "pipe" });
     execSync("git push origin main", { cwd: ROOT, stdio: "pipe" });
     console.log("  Готово. За хвилину-дві фото зʼявляться на сайті.\n");
