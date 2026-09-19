@@ -456,9 +456,11 @@
   /* Смуга фото за героєм. Кожна панель знімається сама, якщо файлу немає;
      коли не лишилось жодної — герой повертається до простого темного тла. */
   function heroPics() {
-    const list = (CFG.hero || []).filter(Boolean);
     const hero = $('.hero');
-    if (!list.length || !hero) return;
+    if (!hero) return;
+    if (CFG.heroLogo) { heroLogo(hero); return; }
+    const list = (CFG.hero || []).filter(Boolean);
+    if (!list.length) return;
     const wrap = document.createElement('div');
     wrap.className = 'hero__pics';
     hero.prepend(wrap);
@@ -486,6 +488,22 @@
     build();
     let rt = 0;
     addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(build, 250); });
+  }
+
+  /* Логотип у банері: файл лишається оригінальним, у темну смугу його
+     вводить мʼяке згасання по краях — інакше сіре тло логотипа стоїть
+     у смузі помітним квадратом. */
+  function heroLogo(hero) {
+    const wrap = document.createElement('div');
+    wrap.className = 'hero__pics hero__pics--logo';
+    const im = new Image();
+    im.alt = '';
+    im.setAttribute('aria-hidden', 'true');
+    im.addEventListener('error', () => { wrap.remove(); hero.classList.remove('hero--pics', 'hero--logo'); });
+    im.src = CFG.heroLogo;
+    wrap.appendChild(im);
+    hero.prepend(wrap);
+    hero.classList.add('hero--pics', 'hero--logo');
   }
 
   function home() {
