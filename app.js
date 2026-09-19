@@ -70,6 +70,53 @@
   const BRAND_ALIAS = { 'air jordan': 'Jordan', 'jordan brand': 'Jordan', 'nike sportswear': 'Nike', 'adidas originals': 'adidas', 'new balanse': 'New Balance', 'nb': 'New Balance' };
   const tidyBrand = b => { const k = String(b == null ? '' : b).trim(); return BRAND_ALIAS[k.toLowerCase()] || k; };
 
+  /* ---------- склад ----------
+     Залишки ведуться в адмінці окремо по кожному розміру. Товар, для
+     якого складу немає, поводиться як раніше — сайти без обліку нічого
+     не втрачають. */
+  const tracked = p => !!(p && p.stk);
+  const avail = (p, size) => (tracked(p) ? (p.stk[size] || 0) : Infinity);
+  const leftAll = p => (tracked(p) ? p.sizes.reduce((n, s) => n + avail(p, s), 0) : Infinity);
+  // «під запит» — це не «немає»: такий товар возять на замовлення
+  const outOfStock = p => p.stock !== false && leftAll(p) === 0;
+  const lowLeft = (p, size) => tracked(p) && avail(p, size) > 0
+    && avail(p, size) <= ((p.stkLow && p.stkLow[size]) || 2);
+  // як розмір зветься в базі: замовлення має влучити рівно в свій рядок складу
+  const dbSize = (p, size) => ((p.stkKey && p.stkKey[size]) || size);
+  const inCart = (id, size) => cart.filter(l => l.id === id && l.size === size)
+    .reduce((n, l) => n + l.qty, 0);
+
+  function stockLine(p) {
+    if (p.stock === false) return 'Немає — привеземо під запит за 3—10 днів';
+    if (outOfStock(p)) return 'Зараз немає — напишіть, і привеземо під запит';
+    const n = leftAll(p);
+    if (tracked(p) && n <= 3) return 'Залишилось ' + n + ' — відправка сьогодні';
+    return 'Є в наявності, відправка сьогодні';
+  }
+
+  /* Розміри в базі можуть бути записані інакше, ніж показує сайт
+     (кирилична «М», «38/42»), тому зводимо обидві сторони до одного
+     вигляду, а оригінальний напис памʼятаємо для замовлення. */
+  function stockIn(rows) {
+    if (!rows || !rows.length) return;
+    const by = {};
+    rows.forEach(r => {
+      const k = tidySize(r.size) || 'Універсальний';
+      const m = by[r.item_id] || (by[r.item_id] = { free: {}, key: {}, low: {} });
+      const free = Math.max(0, (Number(r.qty) || 0) - (Number(r.reserved) || 0));
+      m.free[k] = (m.free[k] || 0) + free;
+      if (free > 0 || !m.key[k]) m.key[k] = r.size;
+      m.low[k] = Math.min(m.low[k] == null ? 99 : m.low[k], Number(r.low_at) || 0);
+    });
+    PRODUCTS.forEach(p => {
+      const m = by[p.itemId];
+      if (!m) return;
+      p.stk = m.free;
+      p.stkKey = m.key;
+      p.stkLow = m.low;
+    });
+  }
+
   /* ---------- кошик ---------- */
   const CART_KEY = 'js_cart_v1';
   const readCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY)) || []; } catch (e) { return []; } };
@@ -117,8 +164,12 @@
       : '';
     const tag = o.tag === false ? ''
       : p.stock === false ? '<span class="tagi tagi--out">Під запит</span>'
-        : TAGS[p.tag] ? `<span class="tagi ${TAGS[p.tag][1]}">${TAGS[p.tag][0]}</span>` : '';
-    const sz = o.sizes ? `<div class="szrow">${p.sizes.map(s => `<span>${esc(s)}</span>`).join('')}</div>` : '';
+        : outOfStock(p) ? '<span class="tagi tagi--out">Немає</span>'
+          : TAGS[p.tag] ? `<span class="tagi ${TAGS[p.tag][1]}">${TAGS[p.tag][0]}</span>` : '';
+    // на картці показуємо лише ті розміри, які справді є
+    const szl = tracked(p) ? p.sizes.filter(s => avail(p, s) > 0) : p.sizes;
+    const sz = o.sizes && szl.length
+      ? `<div class="szrow">${szl.map(s => `<span>${esc(s)}</span>`).join('')}</div>` : '';
     return `<div class="plate">
       ${inner}${o.meta === false ? '' : `<span class="plate__sku">${sku(p)}</span>${off(p)}`}${tag}${sz}
     </div>`;
@@ -891,6 +942,8 @@
     }
     document.title = (p.brand ? p.brand + ' ' : '') + p.name + ' — Just shop';
     let size = '';
+    const gone = outOfStock(p);                 // усе розпродано
+    const sizeGone = s => avail(p, s) <= 0;
     // один розмір на позицію — обирати нема з чого, ставимо одразу
     const oneSize = p.sizes.length === 1;
     if (oneSize) size = p.sizes[0];
@@ -903,18 +956,18 @@
         <span class="pdp__brand">${p.brand ? esc(p.brand) + ' · ' : ''}${sku(p)}</span>
         <h1>${esc(p.name)}</h1>
         <p class="price">${money(p.price)}${p.old ? `<s>${money(p.old)}</s><em>−${Math.round((1 - p.price / p.old) * 100)}%</em>` : ''}</p>
-        <p class="stock${p.stock === false ? ' stock--out' : ''}"><i></i>${p.stock === false ? 'Немає — привеземо під запит за 3—10 днів' : 'Є в наявності, відправка сьогодні'}</p>
+        <p class="stock${p.stock === false || gone ? ' stock--out' : ''}"><i></i>${stockLine(p)}</p>
         <p class="pdp__desc">${esc(p.desc)}</p>
         <div class="pick">
           <div class="pick__h"><span>Розмір</span></div>
           ${oneSize
             ? `<p class="onesize">${esc(p.sizes[0])}</p>`
-            : `<div class="szpick" id="szPick">${p.sizes.map(s => `<button type="button" data-s="${esc(s)}" aria-pressed="false">${esc(s)}</button>`).join('')}</div>
+            : `<div class="szpick" id="szPick">${p.sizes.map(s => `<button type="button" data-s="${esc(s)}" aria-pressed="false"${sizeGone(s) ? ' disabled title="Немає в наявності"' : ''}>${esc(s)}</button>`).join('')}</div>
           <p class="fmsg" id="szMsg"></p>`}
           ${showTable ? `<button class="szlink" type="button" data-sizes="${sizeKind(p)}">${icon('ruler')}Таблиця розмірів</button>` : ''}
         </div>
         <div class="pdp__cta">
-          ${p.stock === false
+          ${p.stock === false || gone
             ? `<a class="btn btn--wide" id="ask" href="${esc(CFG.tg)}" target="_blank" rel="noopener">Запитати в Telegram ${icon('tg')}</a>`
             : `<button class="btn btn--wide" id="add">Додати в кошик ${icon('cart')}</button>`}
         </div>
@@ -932,12 +985,20 @@
       if (!b) return;
       size = b.dataset.s;
       $$('#szPick [data-s]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-      $('#szMsg').textContent = '';
+      // останні одиниці варто показати ще до кошика
+      $('#szMsg').textContent = lowLeft(p, size) ? 'Залишилось ' + avail(p, size) : '';
     });
     const cta = $('#add') || $('#ask');
     if (cta.id === 'add') {
       cta.addEventListener('click', () => {
         if (!size) { $('#szMsg').textContent = 'Оберіть розмір'; szPick.scrollIntoView({ block: 'center' }); return; }
+        // у кошику може вже лежати остання одиниця цього ж розміру
+        const n = avail(p, size);
+        if (inCart(p.id, size) + 1 > n) {
+          const msg = n === 0 ? 'Цього розміру вже немає' : 'Більше немає: на складі ' + n;
+          if ($('#szMsg')) $('#szMsg').textContent = msg; else toast(msg);
+          return;
+        }
         addToCart(p.id, size, 1);
         toast('Додано в кошик · ' + size);
       });
@@ -949,7 +1010,7 @@
 
     /* нижня панель на мобільному */
     const bar = $('#bar');
-    bar.innerHTML = `<span class="bar__p">${money(p.price)}</span><button class="btn btn--sm" id="barAdd">${p.stock === false ? 'Під запит' : 'Додати в кошик'}</button>`;
+    bar.innerHTML = `<span class="bar__p">${money(p.price)}</span><button class="btn btn--sm" id="barAdd">${p.stock === false ? 'Під запит' : gone ? 'Немає' : 'Додати в кошик'}</button>`;
     $('#barAdd').addEventListener('click', () => cta.click());
     if (matchMedia('(max-width:640px)').matches) { bar.classList.add('on'); document.body.classList.add('has-bar'); }
   }
@@ -1049,6 +1110,84 @@
   ];
 
   function checkout() {
+    /* ---------- резерв на час оформлення ----------
+       Поки покупець заповнює форму, його позиції відкладені в базі:
+       інакше двоє можуть купити останню одиницю. Якщо оформлення так
+       і не сталось, база сама поверне товар у продаж через 15 хвилин. */
+    const TOKEN_KEY = 'js_cart_token';
+    const token = () => {
+      let t = '';
+      try { t = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
+      if (!/^[0-9a-f-]{36}$/i.test(t)) {
+        t = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            const r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+          });
+        try { localStorage.setItem(TOKEN_KEY, t); } catch (e) {}
+      }
+      return t;
+    };
+
+    // позиції у вигляді, зрозумілому базі: номер товару й розмір так,
+    // як він записаний на складі
+    const orderLines = () => cart.map(l => {
+      const p = byId(l.id);
+      if (!p || !p.itemId) return null;
+      return {
+        item_id: p.itemId,
+        size: dbSize(p, l.size),
+        color: '',
+        qty: l.qty,
+        title: (p.brand ? p.brand + ' ' : '') + p.name,
+        price: p.price
+      };
+    }).filter(Boolean);
+
+    let holdTimer = 0;
+    let holdTries = 0;
+    let sending = false;
+    function hold() {
+      const db = window.JS_DB;
+      if (!db || !orderLines().length) return;
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(() => {
+        db.rpc('stock_hold', { p_site: db.id, p_token: token(), p_lines: orderLines() })
+          .then(res => {
+            if (!res || res.ok !== false) { holdTries = 0; return; }
+            if (res.short && holdTries++ < 3) applyShort(res.short);
+          })
+          .catch(() => {});
+      }, 350);
+    }
+    const unhold = keep => {
+      const db = window.JS_DB;
+      if (db) db.rpc('stock_unhold', { p_token: token() }, keep).catch(() => {});
+    };
+
+    /* База сказала, чого не вистачає — приводимо кошик до того,
+       що справді лежить на складі, і кажемо про це покупцю. */
+    function applyShort(short) {
+      let msg = '';
+      (short || []).forEach(s => {
+        const p = PRODUCTS.find(x => x.itemId === Number(s.item_id));
+        if (!p) return;
+        const size = tidySize(s.size) || '';
+        const left = Math.max(0, Number(s.left) || 0);
+        if (p.stk) p.stk[size] = left;
+        for (let i = cart.length - 1; i >= 0; i--) {
+          const l = cart[i];
+          if (l.id !== p.id || l.size !== size) continue;
+          if (left === 0) { cart.splice(i, 1); msg = 'Розмір ' + size + ' щойно забрали'; }
+          else if (l.qty > left) { l.qty = left; msg = 'Лишилось ' + left + ' — кількість зменшили'; }
+        }
+      });
+      writeCart(cart);
+      paint();
+      if (msg) toast(msg);
+      hold();
+    }
+
     const form = {
       dlv: 'np_branch', pay: 'card',
       cityRef: '', cityName: '', brRef: '', brName: ''
@@ -1137,18 +1276,20 @@
           const i = +q.dataset.i;
           cart[i].qty += q.dataset.q === '+' ? 1 : -1;
           if (cart[i].qty < 1) cart.splice(i, 1);
-          writeCart(cart); paint();
+          writeCart(cart); paint(); hold();
         } else if (d) {
           cart.splice(+d.dataset.del, 1);
-          writeCart(cart); paint();
+          writeCart(cart); paint(); hold();
         }
       });
+      addEventListener('pagehide', () => unhold(true), { once: true });
       $('#fDlv').addEventListener('change', e => {
         form.dlv = e.target.value;
         npFields(); payOpts(); totals();
       });
       $('#ord').addEventListener('submit', submit);
       npFields(); payOpts(); totals();
+      hold();
     }
 
     function npFields() {
@@ -1241,7 +1382,7 @@
       $('#sNote').textContent = notes.join(' ');
     }
 
-    function submit(e) {
+    async function submit(e) {
       e.preventDefault();
       const name = $('#fName'), tel = $('#fTel');
       let ok = true;
@@ -1255,7 +1396,46 @@
       if (!ok) { const bad = $('.f.bad input'); if (bad) bad.focus(); return; }
 
       const d = DLV.find(x => x.id === form.dlv), p = PAY.find(x => x.id === form.pay);
-      const no = 'JS' + String(Date.now()).slice(-6);
+
+      /* Спершу замовлення йде в базу: там воно ще раз перевіряє залишки,
+         списує товар зі складу й отримує свій номер. Бази немає або вона
+         мовчить — сайт працює як раніше, просто без обліку. */
+      let no = 'JS' + String(Date.now()).slice(-6);
+      const db = window.JS_DB;
+      const dbLines = orderLines();
+      if (db && dbLines.length) {
+        if (sending) return;
+        sending = true;
+        const btn = $('button[form=ord]');
+        const label = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.textContent = 'Оформлюю…'; }
+        let res = null;
+        try {
+          res = await db.rpc('place_order', {
+            p_site: db.id,
+            p_token: token(),
+            p_lines: dbLines,
+            p_customer: {
+              name: $('#fName').value.trim(),
+              phone: $('#fTel').value.trim(),
+              city: form.dlv === 'pickup' ? '' : $('#fCity').value.trim(),
+              branch: form.dlv === 'pickup' ? '' : $('#fBr').value.trim(),
+              delivery: d.n,
+              pay: p.n,
+              comment: $('#fNote').value.trim()
+            },
+            p_total: Math.round(cartSum())
+          });
+        } catch (err) { res = null; }
+        sending = false;
+        if (btn) { btn.disabled = false; btn.innerHTML = label; }
+        if (res && res.ok === false && res.short) {
+          applyShort(res.short);
+          toast('Щось уже забрали — перевірте кошик');
+          return;
+        }
+        if (res && res.ref) no = res.ref;
+      }
       const text = ['ЗАМОВЛЕННЯ ' + no, ''].concat(
         cart.map(l => { const it = byId(l.id); return '• ' + it.brand + ' ' + it.name + ' / ' + l.size + ' × ' + l.qty + ' — ' + Math.round(it.price * l.qty) + ' грн'; })
       ).concat([
@@ -1359,6 +1539,7 @@
   /* ---------- запуск ---------- */
   function boot() {
     PRODUCTS.forEach(p => { p.sizes = tidySizes(p.sizes); p.brand = tidyBrand(p.brand); });
+    stockIn(window.JS_STOCK_ROWS);
     cart = cart.filter(l => byId(l.id));
     paintCount();
     heads();

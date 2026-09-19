@@ -226,6 +226,8 @@ ul,ol{padding:0;list-style:none}
 .szpick button{min-width:40px;height:34px;padding:0 9px;border:1px solid var(--line);font-family:var(--mono);font-size:11px;transition:.15s}
 .szpick button:hover{border-color:var(--ink)}
 .szpick button[aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.szpick button:disabled{opacity:.34;text-decoration:line-through;cursor:default;border-style:dashed}
+.szpick button:disabled:hover{border-color:var(--line)}
 .prng{display:flex;align-items:center;gap:8px}
 .prng input{width:100%;height:38px;padding:0 10px;border:1px solid var(--line);font-family:var(--mono);font-size:12px;border-radius:var(--r)}
 .catbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:14px}
