@@ -70,6 +70,53 @@
   const BRAND_ALIAS = { 'air jordan': 'Jordan', 'jordan brand': 'Jordan', 'nike sportswear': 'Nike', 'adidas originals': 'adidas', 'new balanse': 'New Balance', 'nb': 'New Balance' };
   const tidyBrand = b => { const k = String(b == null ? '' : b).trim(); return BRAND_ALIAS[k.toLowerCase()] || k; };
 
+  /* ---------- чоловіче чи жіноче ----------
+     Магазин тримає і те, і те, тому при першому заході питаємо один раз
+     і памʼятаємо вибір. Річ без поділу — унісекс, аксесуари, шкарпетки —
+     показується в обох розділах, тому нічого не губиться. */
+  const AUD_KEY = 'js_aud';
+  const AUD = [['m', 'Чоловіче'], ['w', 'Жіноче']];
+  let aud = '';
+  try { aud = localStorage.getItem(AUD_KEY) || ''; } catch (e) {}
+  if (aud !== 'm' && aud !== 'w') aud = '';
+  const audOk = p => !p.gender || p.gender === aud;
+  let SHOWN = PRODUCTS;            // товари обраного розділу
+
+  function setAud(a, reload) {
+    aud = a;
+    try { localStorage.setItem(AUD_KEY, a); } catch (e) {}
+    if (reload) { location.reload(); return; }
+    $$('.aud [data-aud]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.aud === aud)));
+  }
+
+  /* Питаємо один раз, поверх ще не намальованої сторінки: так вона
+     малюється одразу потрібним розділом, без перезавантаження. */
+  function askAud(done) {
+    const m = document.createElement('div');
+    m.className = 'audk';
+    m.innerHTML = `<div class="audk__b">
+      ${CFG.logoLight ? `<img class="audk__logo" src="${esc(CFG.logoLight)}" alt="">` : ''}
+      <p class="audk__t dsp">Що показувати?</p>
+      <p class="audk__d">Оберіть розділ — перемкнути його можна будь-коли вгорі сторінки.</p>
+      <div class="audk__row">
+        ${AUD.map(([k, n]) => `<button type="button" class="audk__c" data-aud="${k}">
+          <span>${n}</span>${icon('arrow')}</button>`).join('')}
+      </div>
+    </div>`;
+    document.body.appendChild(m);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => m.classList.add('on'));
+    m.addEventListener('click', e => {
+      const b = e.target.closest('[data-aud]');
+      if (!b) return;
+      setAud(b.dataset.aud, false);
+      m.remove();
+      document.body.style.overflow = prev;
+      done();
+    });
+  }
+
   /* ---------- склад ----------
      Залишки ведуться в адмінці окремо по кожному розміру. Товар, для
      якого складу немає, поводиться як раніше — сайти без обліку нічого
@@ -205,6 +252,9 @@
         <a class="logo" href="index.html">${CFG.logo
           ? `<img src="${esc(CFG.logo)}" alt="${esc(CFG.brand)}" onerror="this.parentNode.innerHTML='Just<i></i>Shop'">`
           : 'Just<i></i>Shop'}</a>
+        <div class="aud" role="group" aria-label="Розділ каталогу">
+          ${AUD.map(([k, n]) => `<button type="button" data-aud="${k}" aria-pressed="${aud === k}">${n}</button>`).join('')}
+        </div>
         <nav class="nav" id="nav">
           ${nav.map(([u, n]) => `<a href="${u}"${page && u.indexOf(page) === 0 ? ' aria-current="page"' : ''}>${n}</a>`).join('')}
         </nav>
@@ -214,6 +264,10 @@
           <button class="iconbtn burger" id="burger" aria-label="Меню" aria-expanded="false">${icon('menu')}</button>
         </div>
       </div>`;
+      $('.aud').addEventListener('click', e => {
+        const b = e.target.closest('[data-aud]');
+        if (b && b.dataset.aud !== aud) setAud(b.dataset.aud, true);
+      });
       $('#burger').addEventListener('click', e => {
         const on = $('#nav').classList.toggle('on');
         e.currentTarget.setAttribute('aria-expanded', String(on));
@@ -341,7 +395,7 @@
           <div class="srch__tags">${CATS.slice(0, 6).map(c => `<a href="katalog.html?cat=${c.id}">${esc(c.name)}</a>`).join('')}</div>`;
         return;
       }
-      const list = PRODUCTS.filter(p => hit(p, s));
+      const list = SHOWN.filter(p => hit(p, s));
       if (!list.length) {
         out.innerHTML = `<p class="srch__hint">Нічого не знайшли. Напишіть нам <a href="${esc(CFG.tg)}" target="_blank" rel="noopener">у Telegram</a> — привеземо з Європи під запит.</p>`;
         return;
@@ -612,7 +666,7 @@
     const match = q => {
       const s = norm(q);
       if (s.length < 2) return [];
-      return PRODUCTS.filter(p => hit(p, s));
+      return SHOWN.filter(p => hit(p, s));
     };
     inp.addEventListener('input', () => { if (!grow()) relayout(); });
     $('#wishGo').addEventListener('click', () => {
@@ -642,12 +696,12 @@
 
     /* стрічка категорій */
     $('#rail').innerHTML = CATS.map(c => {
-      const n = PRODUCTS.filter(p => p.cat === c.id).length;
+      const n = SHOWN.filter(p => p.cat === c.id).length;
       return `<a href="katalog.html?cat=${c.id}">${icon(c.icon)}<em>${esc(c.name)}</em><i>${n}</i></a>`;
     }).join('');
 
     /* розпродаж окремою каруселлю */
-    const sale = PRODUCTS.filter(p => p.old > 0);
+    const sale = SHOWN.filter(p => p.old > 0);
     const car = $('#sale');
     if (sale.length) {
       car.innerHTML = sale.map(card).join('');
@@ -699,10 +753,10 @@
       cat: (url.searchParams.get('cat') || '').split(',').filter(Boolean),
       brand: [], size: [], min: '', max: '', sort: 'pop', view: 'grid'
     };
-    const BRANDS = Array.from(new Set(PRODUCTS.map(p => p.brand).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'uk'));
+    const BRANDS = Array.from(new Set(SHOWN.map(p => p.brand).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'uk'));
     /* Взуттєві 44 упереміш з одяговими L читаються як каша, тому розміри
        стоять групами. Порожні групи не виводяться. */
-    const SIZES = Array.from(new Set(PRODUCTS.flatMap(p => p.sizes))).sort(szCmp);
+    const SIZES = Array.from(new Set(SHOWN.flatMap(p => p.sizes))).sort(szCmp);
     const szBlocks = SZ_GROUPS.map(([label], gi) => {
       const list = SIZES.filter(s => szGroup(s) === gi);
       if (!list.length) return '';
@@ -748,10 +802,10 @@
           </div>
           <div class="drw__body flt" id="flt">
             <div class="flt__g"><h3>Категорія</h3><div class="fltlist">
-              ${CATS.map(c => `<label><input type="checkbox" data-k="cat" value="${c.id}"${st.cat.includes(c.id) ? ' checked' : ''}>${esc(c.name)}<i>${PRODUCTS.filter(p => p.cat === c.id).length}</i></label>`).join('')}</div>
+              ${CATS.map(c => `<label><input type="checkbox" data-k="cat" value="${c.id}"${st.cat.includes(c.id) ? ' checked' : ''}>${esc(c.name)}<i>${SHOWN.filter(p => p.cat === c.id).length}</i></label>`).join('')}</div>
             </div>
             <div class="flt__g"><h3>Бренд</h3><div class="fltlist">
-              ${BRANDS.map(b => `<label><input type="checkbox" data-k="brand" value="${esc(b)}">${esc(b)}<i>${PRODUCTS.filter(p => p.brand === b).length}</i></label>`).join('')}</div>
+              ${BRANDS.map(b => `<label><input type="checkbox" data-k="brand" value="${esc(b)}">${esc(b)}<i>${SHOWN.filter(p => p.brand === b).length}</i></label>`).join('')}</div>
             </div>
             <div class="flt__g"><h3>Розмір</h3>
               ${szBlocks}
@@ -803,7 +857,7 @@
     }
 
     function apply() {
-      let list = PRODUCTS.slice();
+      let list = SHOWN.slice();
       const s = norm(st.q);
       if (s) list = list.filter(p => hit(p, s));
       if (st.cat.length) list = list.filter(p => st.cat.includes(p.cat));
@@ -1004,7 +1058,7 @@
       });
     }
 
-    const near = PRODUCTS.filter(x => x.id !== p.id && (x.cat === p.cat || x.brand === p.brand)).slice(0, 4);
+    const near = SHOWN.filter(x => x.id !== p.id && (x.cat === p.cat || x.brand === p.brand)).slice(0, 4);
     if (near.length) $('#near').innerHTML = near.map(card).join('');
     else $('#nearSec').hidden = true;
 
@@ -1544,16 +1598,21 @@
     paintCount();
     heads();
     chrome();
-    try {
-      if (page === 'index') home();
-      else if (page === 'katalog') shop('#shop');
-      else if (page === 'tovar') product();
-      else if (page === 'koshyk') checkout();
-      else if (page === 'dostavka') tracking();
-      else if (page === 'kontakty') contacts();
-    } catch (err) {
-      console.error(err);
-    }
+    const draw = () => {
+      SHOWN = PRODUCTS.filter(audOk);
+      try {
+        if (page === 'index') home();
+        else if (page === 'katalog') shop('#shop');
+        else if (page === 'tovar') product();
+        else if (page === 'koshyk') checkout();
+        else if (page === 'dostavka') tracking();
+        else if (page === 'kontakty') contacts();
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    // сторінку товару відкривають і з чужого посилання — там питати недоречно
+    if (!aud && page !== 'tovar') askAud(draw); else draw();
   }
 
   document.addEventListener('DOMContentLoaded', () => {

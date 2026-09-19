@@ -86,6 +86,7 @@
         sizes: sizes.length ? sizes : ['One size'],
         colors: [],
         tone: '#8e9196',
+        gender: String(x.gender || '').trim(),   // m — чоловіче, w — жіноче, порожньо — обом
         tag: x.tag || '',
         img: r.image_url || '',
         stock: x.stock !== false && x.stock !== 'false',
