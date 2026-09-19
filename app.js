@@ -217,8 +217,9 @@
     const szl = tracked(p) ? p.sizes.filter(s => avail(p, s) > 0) : p.sizes;
     const sz = o.sizes && szl.length
       ? `<div class="szrow">${szl.map(s => `<span>${esc(s)}</span>`).join('')}</div>` : '';
-    return `<div class="plate">
-      ${inner}${o.meta === false ? '' : `<span class="plate__sku">${sku(p)}</span>${off(p)}`}${tag}${sz}
+    // плитка з фото — біла й без фактури, порожня лишається сірою
+    return `<div class="plate${p.img ? ' plate--ph' : ''}">
+      ${inner}${o.meta === false ? '' : off(p)}${tag}${sz}
     </div>`;
   }
 
