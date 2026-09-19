@@ -1595,6 +1595,12 @@
   function boot() {
     PRODUCTS.forEach(p => { p.sizes = tidySizes(p.sizes); p.brand = tidyBrand(p.brand); });
     stockIn(window.JS_STOCK_ROWS);
+    /* Фото лежать у теці під іменем артикула. Якщо товару не прописали
+       картинку в адмінці, але файл є — беремо його. */
+    if (Array.isArray(window.JS_PHOTOS) && window.JS_PHOTOS.length) {
+      const pics = new Set(window.JS_PHOTOS);
+      PRODUCTS.forEach(p => { if (!p.img && p.sku && pics.has(p.sku)) p.img = 'img/p/' + p.sku + '.webp'; });
+    }
     cart = cart.filter(l => byId(l.id));
     paintCount();
     heads();

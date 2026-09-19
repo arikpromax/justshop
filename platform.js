@@ -130,7 +130,10 @@
     get('/items?site_id=eq.' + id + '&order=collection,sort_order' +
         '&select=id,collection,title,text,price,image_url,extra'),
     get('/texts?site_id=eq.' + id + '&select=key,value'),
-    stock().catch(() => null)   // складу може не бути — сайт це переживе
+    stock().catch(() => null),  // складу може не бути — сайт це переживе
+    /* перелік файлів фото: дає підставити картинку товарам, яким її
+       ще не прописали в базі */
+    fetch('img/p/index.json').then(r => (r.ok ? r.json() : [])).catch(() => [])
   ]);
 
   const timeout = new Promise(r => setTimeout(() => r('slow'), WAIT));
@@ -138,6 +141,7 @@
   window.JS_DATA_READY = Promise.race([both, timeout])
     .then(res => {
       if (res === 'slow') return false;
+      window.JS_PHOTOS = res[3] || [];
       apply(res[0], res[1], res[2]);
       return true;
     })
