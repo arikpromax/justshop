@@ -108,7 +108,7 @@ ul,ol{padding:0;list-style:none}
   linear-gradient(180deg,rgba(11,11,12,.45) 0%,rgba(11,11,12,0) 34%,rgba(11,11,12,.72) 100%),
   radial-gradient(90% 60% at 18% 0%,rgba(255,59,20,.18),transparent 62%)}
 @media (max-width:760px){.hero__pics--logo{justify-content:center;align-items:center;padding:0}
-  .hero__pics--logo img{height:auto;width:min(120%,640px);max-width:none;opacity:.42}
+  .hero__pics--logo img{height:auto;width:min(98%,530px);max-width:none;opacity:.62}
   .hero--logo{padding-top:clamp(70px,13vh,120px)}
   .hero--logo::before{background:linear-gradient(180deg,rgba(11,11,12,.22) 0%,rgba(11,11,12,.3) 30%,rgba(11,11,12,.72) 62%,rgba(11,11,12,.94) 100%),radial-gradient(90% 60% at 18% 0%,rgba(255,59,20,.18),transparent 62%)}}
 .hero--pics::before{background:linear-gradient(180deg,rgba(11,11,12,.74) 0%,rgba(11,11,12,.34) 42%,rgba(11,11,12,.92) 100%),radial-gradient(90% 60% at 18% 0%,rgba(255,59,20,.2),transparent 62%)}
