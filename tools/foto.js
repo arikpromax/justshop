@@ -74,6 +74,24 @@ async function facesRight(buf) {
   return avg(0, 0.3) < avg(0.7, 1) - h * 0.04;
 }
 
+/* Надійний запис: провідник Windows буває тримає файл відкритим,
+   тому пишемо поруч і підміняємо, з кількома спробами. */
+async function save(dest, buf) {
+  const tmp = dest + ".new";
+  for (let i = 0; i < 5; i++) {
+    try {
+      fs.writeFileSync(tmp, buf);
+      try { fs.unlinkSync(dest); } catch (e) { /* могло й не бути */ }
+      fs.renameSync(tmp, dest);
+      return;
+    } catch (e) {
+      try { fs.unlinkSync(tmp); } catch (e2) {}
+      if (i === 4) throw new Error("файл зайнятий — закрийте перегляд у провіднику");
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  }
+}
+
 async function main() {
   fs.mkdirSync(DIR, { recursive: true });
 
@@ -94,18 +112,22 @@ async function main() {
     if (s) bySku.set(s.toUpperCase(), { sku: s, cat: (x.extra || {}).cat || "", title: x.title });
   });
 
-  /* що саме обробляти: усе, крім уже готових квадратних webp */
+  /* Що обробляти: усе, що ви щойно поклали або замінили. Це видно
+     з git — він знає, які файли нові чи змінені. Плюс будь-яка
+     картинка не у webp: її треба перегнати в будь-якому разі. */
+  const changed = new Set();
+  try {
+    const out = execSync("git status --porcelain -- img/p", { cwd: ROOT, encoding: "utf8" });
+    out.split("\n").forEach((line) => {
+      const name = line.slice(3).trim().replace(/^"|"$/g, "");
+      if (name) changed.add(path.basename(name));
+    });
+  } catch (e) { /* не репозиторій — візьмемо хоча б не-webp */ }
+
   const todo = [];
   for (const f of fs.readdirSync(DIR)) {
     if (f === "index.json" || !KINDS.test(f)) continue;
-    const full = path.join(DIR, f);
-    if (/\.webp$/i.test(f)) {
-      try {
-        const m = await sharp(fs.readFileSync(full)).metadata();
-        if (Math.abs(m.width / m.height - 1) < 0.02) continue; // квадрат — уже оброблене
-      } catch (e) { /* не відкрилось — хай іде в обробку */ }
-    }
-    todo.push(f);
+    if (changed.has(f) || !/\.webp$/i.test(f)) todo.push(f);
   }
 
   if (!todo.length) {
@@ -148,8 +170,10 @@ async function main() {
       const out = await img.webp({ quality: 88 }).toBuffer();
 
       const dest = path.join(DIR, found.sku + ".webp");
-      fs.writeFileSync(dest, out);
-      if (path.resolve(full) !== path.resolve(dest)) fs.unlinkSync(full);
+      await save(dest, out);
+      if (path.resolve(full) !== path.resolve(dest)) {
+        try { fs.unlinkSync(full); } catch (e) { /* лишиться — приберемо наступного разу */ }
+      }
       ok.push(found.sku);
       console.log("   ✔ " + found.sku.padEnd(16) + side + "px  " + Math.round(out.length / 1024) + " КБ  " +
         String(found.title).slice(0, 34));
