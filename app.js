@@ -22,6 +22,54 @@
   /* «arc teryx» теж має спрацювати, тому пробіли ігноруємо в другу чергу */
   const hit = (p, s) => hay(p).includes(s) || hay(p).replace(/ /g, '').includes(s.replace(/ /g, ''));
 
+  /* ---------- розміри ----------
+     У таблиці постачальника вони писані як кому заманеться: кирилична «М»
+     поряд з латинською, службове MISK замість «без розміру», ті самі
+     шкарпетки то «38/42», то «38-42», обʼєм рюкзака «25L» у графі розміру.
+     Без зведення до одного вигляду у фільтрі стоять два однакових на око
+     розміри, і кожен показує свою половину товарів. */
+  const CYR = { 'М': 'M', 'С': 'S', 'Л': 'L', 'Х': 'X', 'Т': 'T' };
+  const LET = 'XS|S|M|L|XL|XXL|XXXL';
+  function tidySize(raw) {
+    const s = String(raw == null ? '' : raw).trim().replace(/\s+/g, ' ').replace(',', '.');
+    if (!s) return '';
+    if (/^(misk|misc|mics|uni|onesize|one size|без розміру|універсальний)$/i.test(s)) return 'Універсальний';
+    if (/^\d+ ?[lл]$/i.test(s)) return 'Універсальний';       // «25L» — це обʼєм рюкзака
+    if (/^\d+(\.\d+)?$/.test(s)) {
+      const n = parseFloat(s);
+      return n < 20 ? 'Універсальний' : String(n);                  // «5» — розмір мʼяча, не взуття
+    }
+    const u = s.toUpperCase().replace(/[МСЛХТ]/g, c => CYR[c]);
+    if (new RegExp('^(' + LET + ')$').test(u)) return u;
+    if (new RegExp('^(' + LET + ')[/–-](' + LET + ')$').test(u)) return u.replace(/[/–]/g, '-');
+    if (/^\d{2}(\.5)?[/–-]\d{2}(\.5)?$/.test(u)) return u.replace(/[/–]/g, '-');
+    if (/^\d{2}X\d{2}$/.test(u)) return u.replace('X', 'x');
+    return s;
+  }
+  const SZ_GROUPS = [
+    ['Одяг', new RegExp('^(' + LET + ')(-(' + LET + '))?$')],
+    ['Взуття', /^\d{2}(\.5)?$/],
+    ['Джинси, талія × довжина', /^\d{2}x\d{2}$/i],
+    ['Шкарпетки', /^\d{2}-\d{2}$/],
+    ['Без розміру', /./]
+  ];
+  const SZ_ORDER = ['XS', 'S', 'S-M', 'M', 'L', 'L-XL', 'XL', 'XXL', 'XXXL'];
+  const szGroup = s => { const i = SZ_GROUPS.findIndex(([, re]) => re.test(s)); return i < 0 ? SZ_GROUPS.length - 1 : i; };
+  const szCmp = (a, b) => {
+    const ga = szGroup(a), gb = szGroup(b);
+    if (ga !== gb) return ga - gb;
+    if (ga === 0) return SZ_ORDER.indexOf(a) - SZ_ORDER.indexOf(b);
+    return (parseFloat(a) || 0) - (parseFloat(b) || 0) || a.localeCompare(b, 'uk');
+  };
+  const tidySizes = list => {
+    const out = Array.from(new Set((list || []).map(tidySize).filter(Boolean))).sort(szCmp);
+    return out.length ? out : ['Універсальний'];
+  };
+
+  /* Той самий бренд у таблиці записаний по-різному — у фільтрі це два рядки. */
+  const BRAND_ALIAS = { 'air jordan': 'Jordan', 'jordan brand': 'Jordan', 'nike sportswear': 'Nike', 'adidas originals': 'adidas', 'new balanse': 'New Balance', 'nb': 'New Balance' };
+  const tidyBrand = b => { const k = String(b == null ? '' : b).trim(); return BRAND_ALIAS[k.toLowerCase()] || k; };
+
   /* ---------- кошик ---------- */
   const CART_KEY = 'js_cart_v1';
   const readCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY)) || []; } catch (e) { return []; } };
@@ -80,7 +128,7 @@
     return `<article class="card">
       <a href="tovar.html?id=${encodeURIComponent(p.id)}" aria-label="${esc(p.brand + ' ' + p.name)}">${plate(p, { sizes: true })}</a>
       <div class="card__b">
-        <span class="card__brand">${esc(p.brand)}</span>
+        ${p.brand ? `<span class="card__brand">${esc(p.brand)}</span>` : ''}
         <h3 class="card__n"><a href="tovar.html?id=${encodeURIComponent(p.id)}">${esc(p.name)}</a></h3>
         <p class="card__p">${p.old ? `<u>${money(p.price)}</u><s>${money(p.old)}</s>` : money(p.price)}</p>
       </div>
@@ -249,7 +297,7 @@
       }
       out.innerHTML = list.slice(0, 6).map(p => `<a class="srow" href="tovar.html?id=${encodeURIComponent(p.id)}">
           ${plate(p, { meta: false, tag: false })}
-          <span class="srow__b"><b>${esc(p.brand)}</b><span>${esc(p.name)}</span></span>
+          <span class="srow__b">${p.brand ? `<b>${esc(p.brand)}</b>` : ''}<span>${esc(p.name)}</span></span>
           <em>${money(p.price)}</em>
         </a>`).join('')
         + `<a class="srch__all" href="katalog.html?q=${encodeURIComponent(inp.value.trim())}">Усі знахідки (${list.length}) ${icon('arrow')}</a>`;
@@ -582,9 +630,17 @@
       cat: (url.searchParams.get('cat') || '').split(',').filter(Boolean),
       brand: [], size: [], min: '', max: '', sort: 'pop', view: 'grid'
     };
-    const BRANDS = Array.from(new Set(PRODUCTS.map(p => p.brand))).sort((a, b) => a.localeCompare(b, 'uk'));
-    const SIZES = Array.from(new Set(PRODUCTS.flatMap(p => p.sizes)))
-      .sort((a, b) => (parseInt(a, 10) || 99) - (parseInt(b, 10) || 99) || SIZES_WEAR.indexOf(a) - SIZES_WEAR.indexOf(b));
+    const BRANDS = Array.from(new Set(PRODUCTS.map(p => p.brand).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'uk'));
+    /* Взуттєві 44 упереміш з одяговими L читаються як каша, тому розміри
+       стоять групами. Порожні групи не виводяться. */
+    const SIZES = Array.from(new Set(PRODUCTS.flatMap(p => p.sizes))).sort(szCmp);
+    const szBlocks = SZ_GROUPS.map(([label], gi) => {
+      const list = SIZES.filter(s => szGroup(s) === gi);
+      if (!list.length) return '';
+      return `<div class="szgrp"><h4>${esc(label)}</h4><div class="szpick">`
+        + list.map(s => `<button type="button" data-sz="${esc(s)}" aria-pressed="false">${esc(s)}</button>`).join('')
+        + '</div></div>';
+    }).join('');
 
     root.innerHTML = `
       <div class="catbar">
@@ -629,7 +685,7 @@
               ${BRANDS.map(b => `<label><input type="checkbox" data-k="brand" value="${esc(b)}">${esc(b)}<i>${PRODUCTS.filter(p => p.brand === b).length}</i></label>`).join('')}</div>
             </div>
             <div class="flt__g"><h3>Розмір</h3>
-              <div class="szpick">${SIZES.map(s => `<button type="button" data-sz="${esc(s)}" aria-pressed="false">${esc(s)}</button>`).join('')}</div>
+              ${szBlocks}
             </div>
             <div class="flt__g"><h3>Ціна, грн</h3>
               <div class="prng"><input id="pMin" inputmode="numeric" placeholder="від"><span>—</span><input id="pMax" inputmode="numeric" placeholder="до"></div>
@@ -815,18 +871,18 @@
       root.innerHTML = `<div class="empty"><p class="dsp h-md">Такої позиції немає</p><p>Можливо, вона вже поїхала до власника. Подивіться каталог або замовте пошук.</p><a class="btn" href="katalog.html">У каталог ${icon('arrow')}</a></div>`;
       return;
     }
-    document.title = p.brand + ' ' + p.name + ' — Just shop';
+    document.title = (p.brand ? p.brand + ' ' : '') + p.name + ' — Just shop';
     let size = '';
     // один розмір на позицію — обирати нема з чого, ставимо одразу
     const oneSize = p.sizes.length === 1;
     if (oneSize) size = p.sizes[0];
-    const showTable = p.cat !== 'aksesuary' && !/^one size$/i.test(p.sizes[0] || '');
+    const showTable = p.cat !== 'aksesuary' && !/^(one size|універсальний)$/i.test(p.sizes[0] || '');
 
     root.innerHTML = `
       <div class="pdp__media">${plate(p, { sizes: false })}</div>
       <div>
         <nav class="mono" style="color:var(--mut);margin-bottom:14px"><a href="katalog.html">Каталог</a> / <a href="katalog.html?cat=${p.cat}">${esc(catName(p.cat))}</a></nav>
-        <span class="pdp__brand">${esc(p.brand)} · ${sku(p)}</span>
+        <span class="pdp__brand">${p.brand ? esc(p.brand) + ' · ' : ''}${sku(p)}</span>
         <h1>${esc(p.name)}</h1>
         <p class="price">${money(p.price)}${p.old ? `<s>${money(p.old)}</s><em>−${Math.round((1 - p.price / p.old) * 100)}%</em>` : ''}</p>
         <p class="stock${p.stock === false ? ' stock--out' : ''}"><i></i>${p.stock === false ? 'Немає — привеземо під запит за 3—10 днів' : 'Є в наявності, відправка сьогодні'}</p>
@@ -1284,6 +1340,7 @@
 
   /* ---------- запуск ---------- */
   function boot() {
+    PRODUCTS.forEach(p => { p.sizes = tidySizes(p.sizes); p.brand = tidyBrand(p.brand); });
     cart = cart.filter(l => byId(l.id));
     paintCount();
     heads();
