@@ -287,7 +287,13 @@
       </div>`;
       $('.aud').addEventListener('click', e => {
         const b = e.target.closest('[data-aud]');
-        if (b && b.dataset.aud !== aud) setAud(b.dataset.aud, true);
+        if (b && b.dataset.aud !== aud) {
+          setAud(b.dataset.aud, false);
+          /* З будь-якої сторінки перемикач веде в каталог свого розділу.
+             Назад браузер поверне на ту саму річ, що була відкрита. */
+          if (page === 'katalog') location.reload();
+          else location.href = 'katalog.html';
+        }
       });
       $('#burger').addEventListener('click', e => {
         const on = $('#nav').classList.toggle('on');
@@ -1154,6 +1160,9 @@
       const b = e.target.closest('[data-s]');
       if (!b) return;
       size = b.dataset.s;
+      szPick.classList.remove('szpick--ask');
+      const ask = $('#szMsg');
+      if (ask) ask.classList.remove('fmsg--ask');
       $$('#szPick [data-s]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
       // останні одиниці варто показати ще до кошика
       $('#szMsg').textContent = lowLeft(p, size) ? 'Залишилось ' + avail(p, size) : '';
@@ -1161,7 +1170,20 @@
     const cta = $('#add') || $('#ask');
     if (cta.id === 'add') {
       cta.addEventListener('click', () => {
-        if (!size) { $('#szMsg').textContent = 'Оберіть розмір'; szPick.scrollIntoView({ block: 'center' }); return; }
+        if (!size) {
+          /* Тиха сіра підказка лишалась непоміченою — людина тиснула
+             кнопку ще раз і думала, що кошик зламаний. */
+          const m = $('#szMsg');
+          if (m) { m.textContent = 'Спершу оберіть розмір'; m.classList.add('fmsg--ask'); }
+          if (szPick) {
+            szPick.classList.remove('szpick--ask');
+            void szPick.offsetWidth;            // щоб тремтіння повторилось на другий натиск
+            szPick.classList.add('szpick--ask');
+            szPick.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          }
+          toast('Ви не обрали розмір');
+          return;
+        }
         // у кошику може вже лежати остання одиниця цього ж розміру
         const n = avail(p, size);
         if (inCart(p.id, size) + 1 > n) {
@@ -1716,12 +1738,15 @@
   }
 
   function boot() {
+    /* Спершу знімаємо таймери й слухачі від минулого малювання, і лише
+       потім вішаємо нові. Навпаки не можна: chrome() чіпляє клік по
+       документу, і прибирання всередині draw() зносило його одразу. */
+    release();
     prep();
     paintCount();
     heads();
     chrome();
     const draw = () => {
-      release();                 // зняти таймери й слухачі з минулого малювання
       SHOWN = PRODUCTS.filter(audOk);
       try {
         if (page === 'index') home();
@@ -1736,7 +1761,7 @@
     };
     /* Каталог міг не встигнути приїхати до першого малювання. Щойно
        приїде — малюємо ще раз, інакше сторінка так і лишиться порожньою. */
-    window.JS_REDRAW = () => { prep(); paintCount(); heads(); chrome(); draw(); };
+    window.JS_REDRAW = () => { release(); prep(); paintCount(); heads(); chrome(); draw(); };
 
     // сторінку товару відкривають і з чужого посилання — там питати недоречно
     if (!aud && page !== 'tovar') askAud(draw); else draw();
