@@ -20,9 +20,20 @@
   const id = Number((typeof CFG !== 'undefined' && CFG.siteId) || 0);
   if (!id) { window.JS_DATA_READY = Promise.resolve(false); return; }
 
-  const get = (path, range) => fetch(DB + path, {
+  /* Мережа на телефоні зривається, а часте оновлення сторінки впирається
+     в обмеження бази. Одна невдала спроба — і вітрина лишалась порожня,
+     тож пробуємо ще двічі з паузою. */
+  const once = (path, range) => fetch(DB + path, {
     headers: range ? { apikey: KEY, Range: range } : { apikey: KEY }
   }).then(r => (r.ok ? r.json() : Promise.reject(new Error('http ' + r.status))));
+  const get = async (path, range) => {
+    let last;
+    for (let i = 0; i < 3; i++) {
+      try { return await once(path, range); }
+      catch (e) { last = e; await new Promise(r => setTimeout(r, 400 * (i + 1))); }
+    }
+    throw last;
+  };
 
   /* Виклик функції бази: резерв кошика, оформлення замовлення.
      keep — щоб запит устиг піти, навіть коли вкладку вже закривають. */
@@ -150,7 +161,13 @@
         apply(r[0], r[1], r[2]);
         window.JS_SLOW = false;
         if (typeof window.JS_REDRAW === 'function') window.JS_REDRAW();
-      }).catch(() => {});
+      }).catch(() => {
+        /* Зовсім не дісталися бази. Мовчки лишати порожню вітрину не
+           можна: покупець має знати, що це збій, а не порожній магазин. */
+        window.JS_SLOW = false;
+        window.JS_FAIL = true;
+        if (typeof window.JS_REDRAW === 'function') window.JS_REDRAW();
+      });
       /* А поки їх немає — краще порожньо, ніж показувати демо як товар.
          swap тут не годиться: він мовчки пропускає порожній список. */
       PRODUCTS.splice(0, PRODUCTS.length);

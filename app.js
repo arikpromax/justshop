@@ -794,6 +794,7 @@
         <p class="dsp h-md" id="noneH">Під ці умови нічого немає</p>
         <p id="noneT">Приберіть частину фільтрів — або замовте пошук: дістанемо потрібну модель з європейських магазинів.</p>
         <button class="btn" type="button" id="nonewish">Скинути фільтри</button>
+        <button class="btn" type="button" id="noneAgain" hidden>Оновити сторінку</button>
       </div>
 
       <div class="drw" id="drw">
@@ -879,15 +880,23 @@
       g.className = 'grid' + (st.view === 'list' ? ' grid--list' : '');
       g.hidden = !list.length;
       $('#none').hidden = !!list.length;
-      /* Порожньо буває з двох причин: фільтри надто вузькі або каталог
-         ще їде з бази. Друге не можна підписувати як перше. */
+      /* Порожньо буває з трьох причин: каталог ще їде, зовсім не доїхав
+         або фільтри надто вузькі. Підписи в них різні: перше — почекати,
+         друге — оновити сторінку, третє — послабити фільтри. */
       if (!list.length) {
-        const wait = window.JS_SLOW && !PRODUCTS.length;
-        $('#noneH').textContent = wait ? 'Завантажуємо каталог' : 'Під ці умови нічого немає';
+        const bare = !PRODUCTS.length;
+        const wait = bare && window.JS_SLOW;
+        const fail = bare && window.JS_FAIL;
+        $('#noneH').textContent = wait ? 'Завантажуємо каталог'
+          : fail ? 'Каталог не завантажився' : 'Під ці умови нічого немає';
         $('#noneT').textContent = wait
-          ? 'Хвилинку — тягнемо свіжі залишки й ціни. Якщо не зникне, оновіть сторінку.'
-          : 'Приберіть частину фільтрів — або замовте пошук: дістанемо потрібну модель з європейських магазинів.';
-        $('#nonewish').hidden = wait;
+          ? 'Хвилинку — тягнемо свіжі залишки й ціни.'
+          : fail
+            ? 'Схоже, урвався звʼязок. Товари на місці — оновіть сторінку, і вони зʼявляться.'
+            : 'Приберіть частину фільтрів — або замовте пошук: дістанемо потрібну модель з європейських магазинів.';
+        $('#nonewish').hidden = wait || fail;
+        const again = $('#noneAgain');
+        if (again) again.hidden = !fail;
       }
       found = list;
       draw(true);
@@ -992,6 +1001,7 @@
     }
     $('#fltReset').addEventListener('click', resetAll);
     $('#nonewish').addEventListener('click', resetAll);
+    $('#noneAgain').addEventListener('click', () => location.reload());
 
     apply();
   }
