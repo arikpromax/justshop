@@ -206,9 +206,11 @@
   function plate(p, opts) {
     const o = opts || {};
     // без фото плитка лишається просто однотонною — жодних силуетів
-    const inner = p.img
-      ? `<img src="${esc(p.img)}" alt="${esc(p.brand + ' ' + p.name)}" loading="lazy">`
-      : '';
+    const alt = esc(p.brand + ' ' + p.name);
+    // кілька кадрів — кладемо їх у стрічку, щоб гортати вбік, як звично
+    const inner = o.pics && o.pics.length > 1
+      ? `<div class="track" id="track">${o.pics.map(u => `<img src="${esc(u)}" alt="${alt}">`).join('')}</div>`
+      : p.img ? `<img src="${esc(p.img)}" alt="${alt}" loading="lazy">` : '';
     const tag = o.tag === false ? ''
       : p.stock === false ? '<span class="tagi tagi--out">Під запит</span>'
         : outOfStock(p) ? '<span class="tagi tagi--out">Немає</span>'
@@ -1009,7 +1011,7 @@
     root.innerHTML = `
       <div class="pdp__media">
         <div class="shot" id="shot">
-          ${plate(p, { sizes: false })}
+          ${plate(p, { sizes: false, pics: shots })}
           ${shots.length > 1 ? `
           <button class="shot__a shot__a--p" type="button" id="shotP" aria-label="Попереднє фото">${icon('chev')}</button>
           <button class="shot__a shot__a--n" type="button" id="shotN" aria-label="Наступне фото">${icon('chev')}</button>` : ''}
@@ -1048,30 +1050,22 @@
        палець убік на телефоні й стрілки клавіатури. Перший і останній
        кадри замикаються в коло, щоб гортання не впиралося. */
     let shot = 0;
-    const bigPic = $('.pdp__media .plate img');
+    const track = $('#track');
     const thumbs = $$('#shots [data-u]');
     const box = $('#shot');
-    /* Кадр іде туди, куди штовхнули, а новий заходить із протилежного
-       боку — так видно, що гортаєш, а не просто підміняєш картинку. */
-    const show = (i, dir) => {
+    /* Кадри стоять поруч однією стрічкою, і ми зсуваємо її вбік. Тож
+       сусідній знімок виїжджає одразу за попереднім — без порожнечі
+       між ними, як гортають фото в телефоні. */
+    const slide = (px, smooth) => {
+      if (!track) return;
+      track.style.transition = smooth ? '' : 'none';
+      track.style.transform = 'translateX(' + px + ')';
+    };
+    const show = i => {
       if (shots.length < 2) return;
-      const was = shot;
       shot = (i + shots.length) % shots.length;
       thumbs.forEach((x, k) => x.classList.toggle('on', k === shot));
-      if (!bigPic || shot === was) return;
-      if (!box) { bigPic.src = shots[shot]; return; }
-      const d = dir || (shot > was ? 1 : -1);
-      const out = d > 0 ? 'is-l' : 'is-r';
-      const inn = d > 0 ? 'is-r' : 'is-l';
-      box.classList.add(out);
-      setTimeout(() => {
-        bigPic.src = shots[shot];
-        box.classList.add('no-anim');
-        box.classList.remove(out);
-        box.classList.add(inn);
-        void box.offsetWidth;            // щоб браузер помітив нову точку відліку
-        box.classList.remove('no-anim', inn);
-      }, 170);
+      slide(-shot * 100 + '%', true);
     };
     const shotsBox = $('#shots');
     if (shotsBox) shotsBox.addEventListener('click', e => {
@@ -1079,22 +1073,29 @@
       if (b) show(thumbs.indexOf(b));
     });
     const prev = $('#shotP'), next = $('#shotN');
-    if (prev) prev.addEventListener('click', () => show(shot - 1, -1));
-    if (next) next.addEventListener('click', () => show(shot + 1, 1));
+    if (prev) prev.addEventListener('click', () => show(shot - 1));
+    if (next) next.addEventListener('click', () => show(shot + 1));
     const shotBox = box;
     if (shotBox && shots.length > 1) {
-      let x0 = 0, y0 = 0, swiped = false;
+      let x0 = 0, y0 = 0, dx = 0, lock = '', swiped = false;
       shotBox.addEventListener('touchstart', e => {
-        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; swiped = false;
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+        dx = 0; lock = ''; swiped = false;
       }, { passive: true });
-      shotBox.addEventListener('touchend', e => {
-        const dx = e.changedTouches[0].clientX - x0;
-        const dy = e.changedTouches[0].clientY - y0;
-        // вертикальний рух — це прокрутка сторінки, його не перехоплюємо
-        if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) {
-          swiped = true;
-          show(shot + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
-        }
+      shotBox.addEventListener('touchmove', e => {
+        const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+        // перший помітний рух вирішує: гортаємо фото чи крутимо сторінку
+        if (!lock && (Math.abs(mx) > 8 || Math.abs(my) > 8)) lock = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
+        if (lock !== 'x') return;
+        dx = mx;
+        slide('calc(' + (-shot * 100) + '% + ' + Math.round(dx) + 'px)', false);
+      }, { passive: true });
+      shotBox.addEventListener('touchend', () => {
+        if (lock !== 'x') return;
+        const w = shotBox.offsetWidth || 1;
+        // чверті ширини досить, щоб зрозуміти намір
+        if (Math.abs(dx) > Math.min(70, w * 0.25)) { swiped = true; show(shot + (dx < 0 ? 1 : -1)); }
+        else slide(-shot * 100 + '%', true);
       }, { passive: true });
       /* Натиск по самому фото прибирає стрілки, щоб не затуляли річ.
          Ще один натиск — і вони повертаються. */
