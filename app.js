@@ -151,12 +151,22 @@
   const inCart = (id, size) => cart.filter(l => l.id === id && l.size === size)
     .reduce((n, l) => n + l.qty, 0);
 
+  /* Пошта приймає відправлення до вечора, тож о десятій вечора обіцяти
+     «відправка сьогодні» — обман. Після сьомої й у неділю кажемо чесно,
+     коли річ поїде насправді. */
+  function shipDay() {
+    const d = new Date(), h = d.getHours(), wd = d.getDay();
+    if (wd === 0) return 'відправка завтра';          // неділя — пошта не працює
+    if (h >= 19) return wd === 6 ? 'відправка в понеділок' : 'відправка завтра';
+    return 'відправка сьогодні';
+  }
+
   function stockLine(p) {
     if (p.stock === false) return 'Немає — привеземо під запит за 3—10 днів';
     if (outOfStock(p)) return 'Зараз немає — напишіть, і привеземо під запит';
     const n = leftAll(p);
-    if (tracked(p) && n <= 3) return 'Залишилось ' + n + ' — відправка сьогодні';
-    return 'Є в наявності, відправка сьогодні';
+    if (tracked(p) && n <= 3) return 'Залишилось ' + n + ' — ' + shipDay();
+    return 'Є в наявності, ' + shipDay();
   }
 
   /* Розміри в базі можуть бути записані інакше, ніж показує сайт
@@ -268,6 +278,8 @@
     const h = $('#hdr');
     if (h) {
       const nav = [['katalog.html', 'Каталог'], ['dostavka.html', 'Доставка й оплата'], ['kontakty.html', 'Контакти']];
+      /* Меню на телефоні накриває екран від верху до низу, тож хрестик
+         шапки лишається під ним — кладемо власний усередину панелі. */
       h.className = 'hdr' + (document.body.dataset.hdr === 'dark' ? ' hdr--dark' : '');
       h.innerHTML = `<div class="hdr__in">
         <a class="logo" href="index.html">${CFG.logo
@@ -277,6 +289,7 @@
           ${AUD.map(([k, n]) => `<button type="button" data-aud="${k}" aria-pressed="${aud === k}">${n}</button>`).join('')}
         </div>
         <nav class="nav" id="nav">
+          <button class="nav__x iconbtn" type="button" id="navX" aria-label="Закрити меню">${icon('close')}</button>
           ${nav.map(([u, n]) => `<a href="${u}"${page && u.indexOf(page) === 0 ? ' aria-current="page"' : ''}>${n}</a>`).join('')}
         </nav>
         <div class="hdr__act">
@@ -304,6 +317,8 @@
            Поки меню відкрите, сторінку не рухаємо. */
         document.body.classList.toggle('menu-on', on);
       });
+      const navX = $('#navX');
+      if (navX) navX.addEventListener('click', () => $('#burger').click());
       /* Натиск повз меню закриває його — так само, як хрестик */
       watch(document, 'click', e => {
         if (!document.body.classList.contains('menu-on')) return;
@@ -1141,7 +1156,6 @@
         // перший помітний рух вирішує: гортаємо фото чи крутимо сторінку
         if (!lock && (Math.abs(mx) > 8 || Math.abs(my) > 8)) lock = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
         if (lock !== 'x') return;
-        if (shotBox.classList.contains('is-zoom')) return;   // наближене фото тягають, не гортають
         dx = mx;
         slide('calc(' + (-shot * 100) + '% + ' + Math.round(dx) + 'px)', false);
       }, { passive: true });
@@ -1173,17 +1187,9 @@
        палець тягає кадр, а не гортає — інакше не роздивитись. */
     if (shotBox) {
       const pic = () => track ? track.children[shot] : $('.pdp__media .plate img');
-      let zoom = 1, px = 0, py = 0;
-      const put = () => {
-        const im = pic();
-        if (!im) return;
-        im.style.transition = zoom === 1 ? 'transform .25s' : 'none';
-        im.style.transform = zoom === 1 ? '' : 'translate(' + px + 'px,' + py + 'px) scale(' + zoom + ')';
-        shotBox.classList.toggle('is-zoom', zoom > 1);
-      };
-      const reset = () => { zoom = 1; px = 0; py = 0; put(); };
 
-      /* мишею */
+      /* Тільки мишею. Пальцями телефон наближає сторінку сам, і два
+         наближення одне поверх одного лише заважали. */
       if (matchMedia('(hover:hover)').matches) {
         shotBox.addEventListener('mousemove', e => {
           const im = pic();
@@ -1202,31 +1208,7 @@
         });
       }
 
-      /* пальцями */
-      let d0 = 0, z0 = 1, mx = 0, my = 0, px0 = 0, py0 = 0;
-      const gap = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
-      shotBox.addEventListener('touchstart', e => {
-        if (e.touches.length === 2) { d0 = gap(e.touches); z0 = zoom; }
-        else if (zoom > 1) { mx = e.touches[0].clientX; my = e.touches[0].clientY; px0 = px; py0 = py; }
-      }, { passive: true });
-      shotBox.addEventListener('touchmove', e => {
-        if (e.touches.length === 2 && d0) {
-          zoom = Math.min(3.5, Math.max(1, z0 * gap(e.touches) / d0));
-          if (zoom === 1) { px = 0; py = 0; }
-          put();
-        } else if (e.touches.length === 1 && zoom > 1) {
-          const r = shotBox.getBoundingClientRect();
-          const lim = (r.width * (zoom - 1)) / 2;
-          px = Math.max(-lim, Math.min(lim, px0 + e.touches[0].clientX - mx));
-          py = Math.max(-lim, Math.min(lim, py0 + e.touches[0].clientY - my));
-          put();
-        }
-      }, { passive: true });
-      shotBox.addEventListener('touchend', e => {
-        if (!e.touches.length) { d0 = 0; if (zoom < 1.1) reset(); }
-      }, { passive: true });
       /* гортання й ховання стрілок поки наближено не чіпаємо */
-      shotBox.addEventListener('click', e => { if (zoom > 1) e.stopPropagation(); }, true);
     }
 
     const szPick = $('#szPick');
@@ -1615,7 +1597,7 @@
           <div class="co2__g">
             <section class="co2__c">
               <h3>Дані покупця</h3>
-              <div class="f"><label for="fName">Імʼя та прізвище</label><input id="fName" autocomplete="name" placeholder="Введіть ПІБ"><p class="fmsg"></p></div>
+              <div class="f"><label for="fName">Прізвище, імʼя та по батькові</label><input id="fName" autocomplete="name" placeholder="Як у документах — для накладної"><p class="fmsg"></p></div>
               <div class="f"><label for="fTel">Телефон</label><input id="fTel" inputmode="tel" autocomplete="tel" value="+380 "><p class="fmsg"></p></div>
               <div class="f"><label for="fNote">Коментар до замовлення</label><input id="fNote" placeholder="Необовʼязково"></div>
             </section>

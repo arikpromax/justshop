@@ -77,9 +77,12 @@ ul,ol{padding:0;list-style:none}
 .cartbtn b{position:absolute;top:3px;right:2px;min-width:16px;height:16px;padding:0 4px;background:var(--acc);color:#fff;border-radius:9px;font-family:var(--mono);font-size:9.5px;line-height:16px;text-align:center;font-weight:500}
 .cartbtn b:empty{display:none}
 .burger{display:none}
+.nav__x{display:none}
 body.menu-on{overflow:hidden}
 /* Затемнення позаду меню: показує, що сторінка чекає, і дає куди тицьнути,
    щоб закрити. Нижче за шапку, тож кнопка-хрестик лишається доступною. */
+/* Нижче за шапку: інакше затемнення накривало б і саме меню, бо воно
+   живе всередині шапки, а та має власний рівень. */
 body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgba(6,6,7,.45)}
 
 /* ---------- кнопки ---------- */
@@ -425,14 +428,16 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
   /* Меню виїжджає справа, з-під самої кнопки, і на всю висоту. Смужка
      сайту збоку лишається видимою — зрозуміло, що це накладка, а не
      інша сторінка. */
-  .nav{display:flex;position:fixed;top:73px;right:0;bottom:0;left:auto;width:min(320px,78vw);z-index:70;
-       flex-direction:column;gap:0;background:var(--paper);padding:14px var(--pad) 18px;
+  .nav{display:flex;position:fixed;top:0;right:0;bottom:0;left:auto;width:min(320px,78vw);z-index:90;
+       flex-direction:column;gap:0;background:var(--paper);padding:76px var(--pad) 18px;
        transform:translateX(101%);transition:transform .3s var(--ease);box-shadow:0 0 60px rgba(0,0,0,.18)}
   .hdr--dark .nav{background:var(--ink)}
   .nav.on{transform:none}
   .nav a{padding:14px 0;border-bottom:1px solid var(--line);font-size:13px}
   .hdr--dark .nav a{border-color:var(--line-dk)}
   .burger{display:grid}
+  /* хрестик усередині меню: шапка лишається під панеллю */
+  .nav__x{display:grid;position:absolute;top:16px;right:calc(var(--pad) - 8px)}
   .hero__h{flex-wrap:wrap}
   .hero__h .fill{flex:1 0 100%}
   .clubs{grid-template-columns:1fr}
