@@ -5,6 +5,24 @@
 (() => {
   'use strict';
 
+  /* Сторінка може малюватись двічі: спершу зі збереженого каталогу,
+     потім зі свіжого. Розмітку при цьому замінює нова, а от таймери й
+     слухачі на вікні та документі лишаються висіти від минулого разу.
+     Через це друкарська машинка в пошуку починала бити двома руками:
+     два таймери писали в одне поле навперебій.
+     Тому все таке тримаємо в списку й прибираємо перед новим малюванням. */
+  let held = [];
+  const watch = (box, type, fn, opts) => {
+    box.addEventListener(type, fn, opts);
+    held.push(() => box.removeEventListener(type, fn, opts));
+  };
+  const watchTick = (fn, ms) => {
+    const id = setInterval(fn, ms);
+    held.push(() => clearInterval(id));
+    return id;
+  };
+  const release = () => { held.forEach(f => f()); held = []; };
+
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -323,7 +341,7 @@
     }
 
     paintCount();
-    document.addEventListener('click', e => {
+    watch(document, 'click', e => {
       const s = e.target.closest('[data-search]');
       if (s) { e.preventDefault(); openSearch(); return; }
       const z = e.target.closest('[data-sizes]');
@@ -595,7 +613,7 @@
     };
     build();
     let rt = 0;
-    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(build, 250); });
+    watch(window, 'resize', () => { clearTimeout(rt); rt = setTimeout(build, 250); });
   }
 
   /* Логотип у банері: файл лишається оригінальним, у темну смугу його
@@ -663,7 +681,7 @@
       grow();
     };
 
-    addEventListener('resize', relayout);
+    watch(window, 'resize', relayout);
     // до завантаження Archivo заміри йдуть запасним шрифтом, а він вужчий
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
     const match = q => {
@@ -687,7 +705,7 @@
     let ti = 0, tc = 0, hold = 0, paused = false;
     inp.addEventListener('focus', () => { paused = true; inp.placeholder = ''; });
     inp.addEventListener('blur', () => { paused = false; });
-    setInterval(() => {
+    watchTick(() => {
       if (paused || inp.value) return;
       const w = WISHES[ti % WISHES.length];
       if (hold > 0) { hold--; if (!hold) { tc = 0; ti++; } grow(); return; }
@@ -718,8 +736,8 @@
         car.scrollBy({ left: (b.dataset.car === 'next' ? 1 : -1) * car.clientWidth });
         setTimeout(ends, 450);
       }));
-      car.addEventListener('scroll', ends);
-      addEventListener('resize', ends);
+      watch(car, 'scroll', ends);
+      watch(window, 'resize', ends);
       ends();
     } else {
       $('#saleSec').hidden = true;
@@ -842,7 +860,7 @@
     };
     $('#fltToggle').addEventListener('click', openDrw);
     drw.addEventListener('click', e => { if (e.target.closest('[data-drwx]')) closeDrw(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && drw.classList.contains('on')) closeDrw(); });
+    watch(document, 'keydown', e => { if (e.key === 'Escape' && drw.classList.contains('on')) closeDrw(); });
 
     /* Каталог може бути на сотні позицій, тому малюємо порціями:
        перша порція одразу, решта — коли низ списку зʼявляється на екрані.
@@ -992,7 +1010,7 @@
       const top = more.getBoundingClientRect().top;
       if (top < innerHeight + 600) draw(false);
     };
-    addEventListener('scroll', maybeMore, { passive: true });
+    watch(window, 'scroll', maybeMore, { passive: true });
 
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(e => {
@@ -1124,7 +1142,7 @@
         if (swiped) { swiped = false; return; }
         shotBox.classList.toggle('is-bare');
       });
-      document.addEventListener('keydown', e => {
+      watch(document, 'keydown', e => {
         if (e.target.matches('input, textarea, select')) return;
         if (e.key === 'ArrowLeft') show(shot - 1);
         if (e.key === 'ArrowRight') show(shot + 1);
@@ -1703,6 +1721,7 @@
     heads();
     chrome();
     const draw = () => {
+      release();                 // зняти таймери й слухачі з минулого малювання
       SHOWN = PRODUCTS.filter(audOk);
       try {
         if (page === 'index') home();
