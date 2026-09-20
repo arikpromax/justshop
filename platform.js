@@ -150,6 +150,7 @@
      без звʼязку покупець бачить магазин, а не порожнечу. */
   const BOX = 'js_shop_' + id;
   const OLD = 7 * 24 * 3600 * 1000;   // старіше тижня не беремо
+  const NEW = 10 * 60 * 1000;         // свіже за останні десять хвилин не перепитуємо
 
   const remember = (items, texts, stockRows) => {
     try {
@@ -170,27 +171,34 @@
   };
 
   /* ---------- запит ---------- */
-  const both = Promise.all([
+  const ask = () => Promise.all([
     get('/items?site_id=eq.' + id + '&order=collection,sort_order' +
         '&select=id,collection,title,text,price,image_url,extra'),
     get('/texts?site_id=eq.' + id + '&select=key,value'),
     stock().catch(() => null)   // складу може не бути — сайт це переживе
   ]);
 
-  const fresh = both.then(r => {
+  const box = recall();
+  /* Покупець ходить сайтом — десять, двадцять сторінок. Смикати базу
+     на кожній нема сенсу: каталог не міняється щохвилини, а трафік
+     бази платний. Поки збереженому менше десяти хвилин, мережу не
+     чіпаємо взагалі. */
+  const soon = box && Date.now() - box.at < NEW;
+  const both = soon ? Promise.resolve(null) : ask();
+
+  const fresh = soon ? Promise.resolve(true) : both.then(r => {
     apply(r[0], r[1], r[2]);
     remember(r[0], r[1], r[2]);
     window.JS_SLOW = false;
     return true;
   });
 
-  const box = recall();
   if (box) {
     /* Є збережений каталог — малюємо з нього негайно. Свіжий підміниться
        сам, щойно приїде; не приїде — покупець нічого й не помітить. */
     apply(box.items, box.texts, box.stock);
     window.JS_DATA_READY = Promise.resolve(true);
-    fresh
+    if (!soon) fresh
       .then(() => { if (typeof window.JS_REDRAW === 'function') window.JS_REDRAW(); })
       .catch(() => {});
   } else {
