@@ -1002,10 +1002,12 @@
     // один розмір на позицію — обирати нема з чого, ставимо одразу
     const oneSize = p.sizes.length === 1;
     if (oneSize) size = p.sizes[0];
+    // головне фото плюс «Ще фото» — під плиткою стають маленькі квадратики
+    const shots = [p.img].concat(p.pics || []).filter(Boolean);
     const showTable = p.cat !== 'aksesuary' && !/^(one size|універсальний)$/i.test(p.sizes[0] || '');
 
     root.innerHTML = `
-      <div class="pdp__media">${plate(p, { sizes: false })}</div>
+      <div class="pdp__media">${plate(p, { sizes: false })}${shots.length > 1 ? `<div class="shots" id="shots">${shots.map((u, i) => `<button type="button" class="shots__b${i ? '' : ' on'}" data-u="${esc(u)}" aria-label="Фото ${i + 1}"><img src="${esc(u)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}</div>
       <div>
         <nav class="mono" style="color:var(--mut);margin-bottom:14px"><a href="katalog.html">Каталог</a> / <a href="katalog.html?cat=${p.cat}">${esc(catName(p.cat))}</a></nav>
         <span class="pdp__brand">${p.brand ? esc(p.brand) + ' · ' : ''}${sku(p)}</span>
@@ -1033,6 +1035,15 @@
           <li>${icon('clock')}<span><b>Обмін 14 днів</b><span>Якщо річ не носили й бірки на місці.</span></span></li>
         </ul>
       </div>`;
+
+    const shotsBox = $('#shots');
+    if (shotsBox) shotsBox.addEventListener('click', e => {
+      const b = e.target.closest('[data-u]');
+      if (!b) return;
+      const big = $('.pdp__media .plate img');
+      if (big) big.src = b.dataset.u;
+      $$('#shots [data-u]').forEach(x => x.classList.toggle('on', x === b));
+    });
 
     const szPick = $('#szPick');
     if (szPick) szPick.addEventListener('click', e => {
@@ -1595,12 +1606,12 @@
   function boot() {
     PRODUCTS.forEach(p => { p.sizes = tidySizes(p.sizes); p.brand = tidyBrand(p.brand); });
     stockIn(window.JS_STOCK_ROWS);
-    /* Фото лежать у теці під іменем артикула. Якщо товару не прописали
-       картинку в адмінці, але файл є — беремо його. */
-    if (Array.isArray(window.JS_PHOTOS) && window.JS_PHOTOS.length) {
-      const pics = new Set(window.JS_PHOTOS);
-      PRODUCTS.forEach(p => { if (!p.img && p.sku && pics.has(p.sku)) p.img = 'img/p/' + p.sku + '.webp'; });
-    }
+    /* Головне фото могли не заповнити, а «Ще фото» є — тоді перше з них
+       стає головним, решта лишаються додатковими. */
+    PRODUCTS.forEach(p => {
+      p.pics = Array.isArray(p.pics) ? p.pics.filter(Boolean) : [];
+      if (!p.img && p.pics.length) { p.img = p.pics[0]; p.pics = p.pics.slice(1); }
+    });
     cart = cart.filter(l => byId(l.id));
     paintCount();
     heads();
