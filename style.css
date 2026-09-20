@@ -265,7 +265,10 @@ ul,ol{padding:0;list-style:none}
 .pdp__media{position:sticky;top:88px}
 /* Фото не має займати весь екран: інакше ряд мініатюр лишається за
    краєм, і покупець не здогадується, що кадрів більше. */
-.pdp__media .plate{aspect-ratio:1/1.08;border:1px solid var(--line);max-height:calc(100dvh - 250px)}
+/* Фото приходить квадратним, а плитка трохи вища — знизу лишалася
+   порожня смужка, і рамка її обводила. Рамку прибрали, плитку
+   зрівняли з фото: тепер межа проходить по самому знімку. */
+.pdp__media .plate{aspect-ratio:1;max-height:calc(100dvh - 250px)}
 .shot{position:relative}
 .shot .plate img{transition:opacity .17s ease,transform .17s ease}
 .shot.is-l .plate img{opacity:0;transform:translateX(-26px)}
