@@ -304,6 +304,12 @@
            Поки меню відкрите, сторінку не рухаємо. */
         document.body.classList.toggle('menu-on', on);
       });
+      /* Натиск повз меню закриває його — так само, як хрестик */
+      watch(document, 'click', e => {
+        if (!document.body.classList.contains('menu-on')) return;
+        if (e.target.closest('#nav') || e.target.closest('#burger')) return;
+        $('#burger').click();
+      });
     }
 
     const f = $('#ft');
