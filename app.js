@@ -1366,6 +1366,7 @@
       get items() { return items; },
       set value(v) { cur = v; label(); },
       get value() { return cur; },
+      set placeholder(t) { o.placeholder = t; label(); },
       busy(text) { list.innerHTML = '<p class="dd__more">' + esc(text) + '</p>'; },
       close: shut,
     };
@@ -1704,16 +1705,23 @@
             form.cityRef = it.v; form.cityName = it.t;
             form.brRef = ''; form.brName = '';
             fieldBad(city, '');
-            if (brPick) { brPick.items = []; brPick.value = ''; }
+            if (brPick) {
+              brPick.items = [];
+              brPick.value = '';
+              brPick.placeholder = form.dlv === 'np_postomat' ? 'Оберіть поштомат' : 'Оберіть відділення';
+            }
           },
         });
         npCities().then(list => { cityPick.items = list; cityPick.value = form.cityRef; }).catch(() => {});
       }
 
       if (br.tagName !== 'INPUT') {
+        /* Поки місто не обране, у полі стоїть не «Оберіть відділення», а
+           причина: інакше людина тисне, бачить порожньо й не розуміє чому. */
+        const brWord = form.dlv === 'np_postomat' ? 'Оберіть поштомат' : 'Оберіть відділення';
         brPick = dropdown(br, {
           items: [], value: form.brRef, search: 'Номер або вулиця',
-          placeholder: form.dlv === 'np_postomat' ? 'Оберіть поштомат' : 'Оберіть відділення',
+          placeholder: form.cityRef ? brWord : 'Спершу оберіть місто',
           empty: 'Тут такого немає',
           onOpen: api => {
             if (api.items.length) return;
