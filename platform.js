@@ -15,7 +15,7 @@
 
   const DB = 'https://ortiatyxntdikaldepbp.supabase.co/rest/v1';
   const KEY = 'sb_publishable_UW1Z8ukEU1XWVCdQxIGkDw_firK4hpO'; /* публічний ключ лише на читання */
-  const WAIT = 2500;  /* довше сторінку не тримаємо */
+  const WAIT = 1500;  /* далі не тримаємо: малюємо підпис «завантажуємо» і чекаємо */
 
   const id = Number((typeof CFG !== 'undefined' && CFG.siteId) || 0);
   if (!id) { window.JS_DATA_READY = Promise.resolve(false); return; }
@@ -139,9 +139,22 @@
 
   window.JS_DATA_READY = Promise.race([both, timeout])
     .then(res => {
-      if (res === 'slow') return false;
-      apply(res[0], res[1], res[2]);
-      return true;
+      if (res !== 'slow') { apply(res[0], res[1], res[2]); return true; }
+      /* Не вклались у відведений час. Раніше відповідь після цього
+         просто викидалась, і сайт назавжди лишався на запасних
+         позиціях із data.js — з чужими цінами й без фото. Тепер
+         чекаємо далі: приїдуть дані — застосуємо їх і попросимо
+         сторінку перемалюватись. */
+      window.JS_SLOW = true;
+      both.then(r => {
+        apply(r[0], r[1], r[2]);
+        window.JS_SLOW = false;
+        if (typeof window.JS_REDRAW === 'function') window.JS_REDRAW();
+      }).catch(() => {});
+      /* А поки їх немає — краще порожньо, ніж показувати демо як товар.
+         swap тут не годиться: він мовчки пропускає порожній список. */
+      PRODUCTS.splice(0, PRODUCTS.length);
+      return false;
     })
     .catch(() => false);
 })();

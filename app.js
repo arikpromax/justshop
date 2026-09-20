@@ -791,8 +791,8 @@
         <button class="btn btn--gh" type="button" id="moreBtn">Показати ще</button>
       </div>
       <div class="empty" id="none" hidden>
-        <p class="dsp h-md">Під ці умови нічого немає</p>
-        <p>Приберіть частину фільтрів — або замовте пошук: дістанемо потрібну модель з європейських магазинів.</p>
+        <p class="dsp h-md" id="noneH">Під ці умови нічого немає</p>
+        <p id="noneT">Приберіть частину фільтрів — або замовте пошук: дістанемо потрібну модель з європейських магазинів.</p>
         <button class="btn" type="button" id="nonewish">Скинути фільтри</button>
       </div>
 
@@ -879,6 +879,16 @@
       g.className = 'grid' + (st.view === 'list' ? ' grid--list' : '');
       g.hidden = !list.length;
       $('#none').hidden = !!list.length;
+      /* Порожньо буває з двох причин: фільтри надто вузькі або каталог
+         ще їде з бази. Друге не можна підписувати як перше. */
+      if (!list.length) {
+        const wait = window.JS_SLOW && !PRODUCTS.length;
+        $('#noneH').textContent = wait ? 'Завантажуємо каталог' : 'Під ці умови нічого немає';
+        $('#noneT').textContent = wait
+          ? 'Хвилинку — тягнемо свіжі залишки й ціни. Якщо не зникне, оновіть сторінку.'
+          : 'Приберіть частину фільтрів — або замовте пошук: дістанемо потрібну модель з європейських магазинів.';
+        $('#nonewish').hidden = wait;
+      }
       found = list;
       draw(true);
 
@@ -1664,7 +1674,8 @@
   }
 
   /* ---------- запуск ---------- */
-  function boot() {
+  /* Довести щойно отримані товари до вигляду, з яким працює сайт */
+  function prep() {
     PRODUCTS.forEach(p => { p.sizes = tidySizes(p.sizes); p.brand = tidyBrand(p.brand); });
     stockIn(window.JS_STOCK_ROWS);
     /* Головне фото могли не заповнити, а «Ще фото» є — тоді перше з них
@@ -1674,6 +1685,10 @@
       if (!p.img && p.pics.length) { p.img = p.pics[0]; p.pics = p.pics.slice(1); }
     });
     cart = cart.filter(l => byId(l.id));
+  }
+
+  function boot() {
+    prep();
     paintCount();
     heads();
     chrome();
@@ -1690,6 +1705,10 @@
         console.error(err);
       }
     };
+    /* Каталог міг не встигнути приїхати до першого малювання. Щойно
+       приїде — малюємо ще раз, інакше сторінка так і лишиться порожньою. */
+    window.JS_REDRAW = () => { prep(); paintCount(); heads(); chrome(); draw(); };
+
     // сторінку товару відкривають і з чужого посилання — там питати недоречно
     if (!aud && page !== 'tovar') askAud(draw); else draw();
   }
