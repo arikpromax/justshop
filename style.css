@@ -665,3 +665,34 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
 .audk__c:hover{background:#fff;color:var(--ink);border-color:#fff}
 .audk__c:hover svg{transform:translateX(4px)}
 @media (max-width:520px){.audk__row{grid-template-columns:1fr}}
+
+/* ===========================================================
+   Свій випадний список
+
+   Системний <select> на телефоні розгортається айфонівським барабаном,
+   а на комп'ютері має вигляд операційної системи, а не сайту. Тут одне
+   й те саме скрізь: поле з галочкою, під ним панель із пошуком.
+   =========================================================== */
+.dd{position:relative;width:100%}
+.dd__b{display:flex;align-items:center;gap:10px;width:100%;height:44px;padding:0 12px;
+  border:1px solid var(--line);border-radius:var(--r);background:var(--paper);
+  font:inherit;font-size:15px;text-align:left;cursor:pointer;transition:border-color .2s}
+.dd__b:hover{border-color:var(--mut)}
+.dd.is-open .dd__b{border-color:var(--ink)}
+.dd__v{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd__v--empty{color:var(--mut)}
+.dd__b .ic{font-size:14px;color:var(--mut);transform:rotate(90deg);transition:transform .2s}
+.dd.is-open .dd__b .ic{transform:rotate(-90deg)}
+.dd__p{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:40;background:var(--paper);
+  border:1px solid var(--line);border-radius:var(--r);box-shadow:0 18px 40px rgba(0,0,0,.14);overflow:hidden}
+.dd__q{padding:8px;border-bottom:1px solid var(--line)}
+.dd__q input{width:100%;height:38px;padding:0 12px;border:1px solid var(--line);border-radius:var(--r);font:inherit;font-size:14px}
+.dd__q input:focus{border-color:var(--ink);outline:none}
+.dd__l{max-height:min(46vh,340px);overflow-y:auto;overscroll-behavior:contain}
+.dd__i{display:block;width:100%;padding:11px 13px;border:0;background:none;font:inherit;font-size:14.5px;
+  text-align:left;cursor:pointer;border-bottom:1px solid var(--line)}
+.dd__i:last-child{border-bottom:0}
+.dd__i:hover{background:var(--grey)}
+.dd__i.on{background:var(--grey);font-weight:600}
+.dd__i em{display:block;margin-top:2px;font-style:normal;font-size:12px;color:var(--mut)}
+.dd__more{padding:13px;font-size:13px;color:var(--mut)}

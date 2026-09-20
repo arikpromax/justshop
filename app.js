@@ -1300,6 +1300,124 @@
       });
   }
 
+  /* ===========================================================
+     Свій випадний список
+
+     Системний <select> на телефоні перетворюється на айфонівський
+     барабан, а поле з підказками вимагає спершу вгадати, що вводити.
+     Тут одне й те саме на всіх пристроях: натиснув — побачив список,
+     згори рядок пошуку, як треба.
+
+     opts: { items, value, search, placeholder, onPick, onOpen }
+     items — масив { v, t, s } (значення, назва, дрібний підпис).
+     =========================================================== */
+  function dropdown(host, opts) {
+    const o = opts || {};
+    let items = o.items || [], open = false, cur = o.value || '';
+
+    host.classList.add('dd');
+    host.innerHTML =
+      '<button class="dd__b" type="button" aria-haspopup="listbox" aria-expanded="false">' +
+        '<span class="dd__v"></span>' + icon('chev') +
+      '</button>' +
+      '<div class="dd__p" hidden>' +
+        (o.search ? '<div class="dd__q"><input type="text" autocomplete="off" placeholder="' + esc(o.search) + '"></div>' : '') +
+        '<div class="dd__l" role="listbox"></div>' +
+      '</div>';
+
+    const btn = $('.dd__b', host), val = $('.dd__v', host), pan = $('.dd__p', host);
+    const inp = $('.dd__q input', host), list = $('.dd__l', host);
+
+    const label = () => {
+      const it = items.find(x => x.v === cur);
+      val.textContent = it ? it.t : (o.placeholder || '');
+      val.classList.toggle('dd__v--empty', !it);
+    };
+    const paint = q => {
+      const s = norm(q || '');
+      /* Довгий список не малюємо цілком: браузер задихнеться на шести
+         тисячах рядків, а людині стільки й не треба — далі вона шукає. */
+      /* Спершу ті, чия назва починається із запиту: на «київ» людина
+         чекає Київ, а не Андріївку в Київській області. */
+      const rank = x => { const t = norm(x.t); return t.indexOf(s) === 0 ? 0 : (t.indexOf(s) >= 0 ? 1 : 2); };
+      const hit = s
+        ? items.filter(x => norm(x.t).indexOf(s) >= 0).sort((x, y) => rank(x) - rank(y) || x.t.length - y.t.length)
+        : items;
+      const show = hit.slice(0, 120);
+      list.innerHTML = show.length
+        ? show.map(x => '<button class="dd__i' + (x.v === cur ? ' on' : '') + '" type="button" role="option" data-v="' + esc(x.v) + '">' +
+            esc(x.t) + (x.s ? '<em>' + esc(x.s) + '</em>' : '') + '</button>').join('') +
+          (hit.length > show.length ? '<p class="dd__more">Ще ' + (hit.length - show.length) + ' — уточніть пошук</p>' : '')
+        : '<p class="dd__more">' + (o.empty || 'Нічого не знайшлось') + '</p>';
+    };
+
+    const shut = () => {
+      if (!open) return;
+      open = false; pan.hidden = true; host.classList.remove('is-open');
+      btn.setAttribute('aria-expanded', 'false');
+    };
+    const show = () => {
+      if (open) return;
+      open = true; pan.hidden = false; host.classList.add('is-open');
+      btn.setAttribute('aria-expanded', 'true');
+      if (inp) { inp.value = ''; }
+      paint('');
+      if (inp) setTimeout(() => inp.focus(), 30);
+      if (o.onOpen) o.onOpen(api);
+    };
+
+    btn.addEventListener('click', () => (open ? shut() : show()));
+    if (inp) inp.addEventListener('input', () => paint(inp.value));
+    list.addEventListener('click', e => {
+      const b = e.target.closest('[data-v]');
+      if (!b) return;
+      cur = b.dataset.v;
+      label(); shut();
+      const it = items.find(x => x.v === cur);
+      if (o.onPick) o.onPick(it || { v: cur });
+    });
+    watch(document, 'click', e => { if (!host.contains(e.target)) shut(); });
+    watch(document, 'keydown', e => { if (e.key === 'Escape') shut(); });
+
+    const api = {
+      set items(next) { items = next || []; if (open) paint(inp ? inp.value : ''); label(); },
+      get items() { return items; },
+      set value(v) { cur = v; label(); },
+      get value() { return cur; },
+      busy(text) { list.innerHTML = '<p class="dd__more">' + esc(text) + '</p>'; },
+      close: shut,
+    };
+    label();
+    return api;
+  }
+
+  /* Повний перелік міст Нової Пошти. Шість із половиною тисяч рядків —
+     тягнемо раз і тримаємо тиждень у браузері, далі пошук іде без мережі. */
+  const CITY_BOX = 'js_np_cities';
+  let cityJob = null;
+  function npCities() {
+    if (cityJob) return cityJob;
+    try {
+      const box = JSON.parse(localStorage.getItem(CITY_BOX) || 'null');
+      if (box && box.at && Date.now() - box.at < 7 * 24 * 3600 * 1000 && box.list && box.list.length) {
+        cityJob = Promise.resolve(box.list);
+        return cityJob;
+      }
+    } catch (e) {}
+    cityJob = (async () => {
+      const out = [];
+      for (let page = 1; page <= 14; page++) {
+        const d = await npCall('Address', 'getCities', { Limit: '500', Page: String(page) });
+        d.forEach(c => out.push({ v: c.Ref, t: c.Description, s: c.AreaDescription ? c.AreaDescription + ' обл.' : '' }));
+        if (d.length < 500) break;
+      }
+      try { localStorage.setItem(CITY_BOX, JSON.stringify({ at: Date.now(), list: out })); } catch (e) {}
+      return out;
+    })();
+    cityJob.catch(() => { cityJob = null; });
+    return cityJob;
+  }
+
   /* випадний список під полем */
   function autocomplete(input, opts) {
     const list = document.createElement('ul');
@@ -1506,10 +1624,7 @@
               <h3>Доставка</h3>
               <div class="f">
                 <label for="fDlv">Спосіб доставки</label>
-                <span class="selwrap selwrap--line">
-                  <select class="sel sel--line" id="fDlv">${DLV.map(d => `<option value="${d.id}"${d.id === form.dlv ? ' selected' : ''}>${esc(d.n)}</option>`).join('')}</select>
-                  ${icon('chev')}
-                </span>
+                <div id="fDlv"></div>
               </div>
               <div id="npFields"></div>
             </section>
@@ -1544,9 +1659,10 @@
         }
       });
       addEventListener('pagehide', () => unhold(true), { once: true });
-      $('#fDlv').addEventListener('change', e => {
-        form.dlv = e.target.value;
-        npFields(); payOpts(); totals();
+      dropdown($('#fDlv'), {
+        items: DLV.map(d => ({ v: d.id, t: d.n, s: d.d })),
+        value: form.dlv,
+        onPick: it => { form.dlv = it.v; npFields(); payOpts(); totals(); },
       });
       $('#ord').addEventListener('submit', submit);
       npFields(); payOpts(); totals();
@@ -1561,18 +1677,25 @@
       }
       const label = form.dlv === 'np_postomat' ? 'Поштомат' : form.dlv === 'np_courier' ? 'Адреса доставки' : 'Відділення';
       box.innerHTML = `
-        <div class="f"><label for="fCity">Місто</label><input id="fCity" autocomplete="off" placeholder="Почніть вводити назву"><p class="fmsg"></p></div>
-        <div class="f"><label for="fBr">${label}</label><input id="fBr" autocomplete="off" placeholder="${form.dlv === 'np_courier' ? 'Вулиця, будинок, квартира' : 'Номер або адреса'}"><p class="fmsg"></p>
+        <div class="f"><label>Місто</label>${form.dlv === 'np_courier'
+            ? '<input id="fCity" autocomplete="off" placeholder="Почніть вводити назву">'
+            : '<div id="fCity"></div>'}<p class="fmsg"></p></div>
+        <div class="f"><label>${label}</label>${isBranch()
+            ? '<div id="fBr"></div>'
+            : '<input id="fBr" autocomplete="off" placeholder="Вулиця, будинок, квартира">'}<p class="fmsg"></p>
           <p class="fhint" id="brHint"></p></div>`;
 
       const city = $('#fCity'), br = $('#fBr');
-      city.value = form.cityName;
-      br.value = form.brName;
-
-      city.addEventListener('input', () => {
-        if (city.value.trim() !== form.cityName) { form.cityRef = ''; form.cityName = ''; form.brRef = ''; form.brName = ''; br.value = ''; }
-      });
-      br.addEventListener('input', () => { if (br.value.trim() !== form.brName) { form.brRef = ''; form.brName = br.value.trim(); } });
+      if (city.tagName === 'INPUT') {
+        city.value = form.cityName;
+        city.addEventListener('input', () => {
+          if (city.value.trim() !== form.cityName) { form.cityRef = ''; form.cityName = ''; form.brRef = ''; form.brName = ''; if (br.tagName === 'INPUT') br.value = ''; }
+        });
+      }
+      if (br.tagName === 'INPUT') {
+        br.value = form.brName;
+        br.addEventListener('input', () => { if (br.value.trim() !== form.brName) { form.brRef = ''; form.brName = br.value.trim(); } });
+      }
 
       const hint = $('#brHint');
       const setHint = () => {
@@ -1582,7 +1705,53 @@
       };
       setHint();
 
-      autocomplete(city, {
+      /* Місто й відділення — списками, як і спосіб доставки. Весь перелік
+         Нової Пошти вантажимо раз, далі пошук іде без мережі. */
+      let brPick = null;
+      if (city.tagName !== 'INPUT') {
+        const cityPick = dropdown(city, {
+          items: [], value: form.cityRef, search: 'Знайти місто',
+          placeholder: 'Оберіть місто', empty: 'Такого міста немає',
+          onOpen: api => {
+            if (api.items.length) return;
+            api.busy('Завантажуємо перелік міст…');
+            npCities().then(list => { api.items = list; })
+              .catch(() => { api.busy('Нова Пошта не відповідає'); setHint(); });
+          },
+          onPick: it => {
+            form.cityRef = it.v; form.cityName = it.t;
+            form.brRef = ''; form.brName = '';
+            fieldBad(city, '');
+            if (brPick) { brPick.items = []; brPick.value = ''; }
+          },
+        });
+        npCities().then(list => { cityPick.items = list; cityPick.value = form.cityRef; }).catch(() => {});
+      }
+
+      if (br.tagName !== 'INPUT') {
+        brPick = dropdown(br, {
+          items: [], value: form.brRef, search: 'Номер або вулиця',
+          placeholder: form.dlv === 'np_postomat' ? 'Оберіть поштомат' : 'Оберіть відділення',
+          empty: 'Тут такого немає',
+          onOpen: api => {
+            if (api.items.length) return;
+            if (!form.cityRef) { api.busy('Спершу оберіть місто'); return; }
+            api.busy('Завантажуємо перелік…');
+            npCall('AddressGeneral', 'getWarehouses', {
+              CityRef: form.cityRef, Limit: '500', Page: '1', Language: 'UA',
+              TypeOfWarehouseRef: NP_TYPE[form.dlv],
+            }).then(ws => {
+              const res = w => /тільки для мешканців/i.test(w.Description);
+              api.items = ws.sort((x, y) => res(x) - res(y))
+                .map(w => ({ v: w.Ref, t: w.Description, s: res(w) ? 'лише для мешканців будинку' : '' }));
+              if (!api.items.length) api.busy('У цьому місті таких немає');
+            }).catch(() => { api.busy('Нова Пошта не відповідає'); setHint(); });
+          },
+          onPick: it => { form.brRef = it.v; form.brName = it.t; fieldBad(br, ''); },
+        });
+      }
+
+      if (city.tagName === 'INPUT') autocomplete(city, {
         min: 2,
         load: q => npCall('Address', 'searchSettlements', { CityName: q, Limit: '20', Page: '1' })
           .then(d => ((d[0] && d[0].Addresses) || [])
@@ -1592,7 +1761,7 @@
         onError: setHint
       });
 
-      if (isBranch()) {
+      if (false) {
         autocomplete(br, {
           min: 0,
           query: v => v.trim(),
