@@ -42,7 +42,7 @@ ul,ol{padding:0;list-style:none}
 /* ---------- типографіка ---------- */
 .dsp{
   font-family:var(--dsp); font-weight:800; font-stretch:112%;
-  text-transform:uppercase; line-height:.9; letter-spacing:-.022em;
+  text-transform:uppercase; line-height:.95; letter-spacing:-.022em;
 }
 .mono{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:500}
 .h-xl{font-size:clamp(40px,9vw,128px)}
@@ -233,7 +233,9 @@ ul,ol{padding:0;list-style:none}
 .szpick button:disabled:hover{border-color:var(--line)}
 .prng{display:flex;align-items:center;gap:8px}
 .prng input{width:100%;height:38px;padding:0 10px;border:1px solid var(--line);font-family:var(--mono);font-size:12px;border-radius:var(--r)}
-.catbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:14px}
+/* Смуга з фільтрами лишається на очах, поки гортаєш каталог: інакше
+   по три сотні позицій доводиться вертатись угору по кожен фільтр. */
+.catbar{position:sticky;top:73px;z-index:40;background:var(--paper);display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 0 16px;border-bottom:1px solid var(--line);margin-bottom:14px}
 .catbar .mono{color:var(--mut)}
 .catbar__r{margin-left:auto;display:flex;align-items:center;gap:8px}
 .sel{height:38px;padding:0 30px 0 12px;border:1px solid var(--line);border-radius:var(--r);appearance:none;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;background:var(--paper)}
@@ -264,6 +266,12 @@ ul,ol{padding:0;list-style:none}
 /* Фото не має займати весь екран: інакше ряд мініатюр лишається за
    краєм, і покупець не здогадується, що кадрів більше. */
 .pdp__media .plate{aspect-ratio:1/1.08;border:1px solid var(--line);max-height:calc(100dvh - 250px)}
+.shot{position:relative}
+.shot__a{position:absolute;top:50%;margin-top:-21px;width:42px;height:42px;display:grid;place-items:center;background:var(--paper);border:1px solid var(--line);color:var(--ink);opacity:.92;transition:opacity .2s,border-color .2s}
+.shot__a:hover{opacity:1;border-color:var(--ink)}
+.shot__a--p{left:12px}
+.shot__a--p .ic{transform:rotate(180deg)}
+.shot__a--n{right:12px}
 .shots{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .shots__b{width:66px;height:66px;padding:0;overflow:hidden;background:var(--paper);border:1px solid var(--line);transition:border-color .15s}
 .shots__b img{width:100%;height:100%;object-fit:contain}
@@ -380,9 +388,6 @@ ul,ol{padding:0;list-style:none}
 .trkres b{color:var(--tx)}
 
 /* нижня панель на мобільному */
-.bar{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--paper);border-top:1px solid var(--line);padding:10px var(--pad) calc(10px + env(safe-area-inset-bottom));display:none;gap:10px;align-items:center}
-.bar .btn{flex:1}
-.bar__p{font-family:var(--mono);font-size:14px;font-weight:500}
 
 /* ---------- адаптив ---------- */
 @media (max-width:1080px){
@@ -414,8 +419,6 @@ ul,ol{padding:0;list-style:none}
   .hero__h{font-size:clamp(26px,8.4vw,46px)}
   .card__b{padding:11px 11px 13px}
   .card__n{font-size:13.5px}
-  .bar.on{display:flex}
-  body.has-bar{padding-bottom:74px}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms !important;transition-duration:.01ms !important}
@@ -478,6 +481,9 @@ ul,ol{padding:0;list-style:none}
 @media (max-width:640px){
   .catbar__r{width:100%;margin-left:0}
   .catq{flex:1;width:auto}
+  /* На телефоні смуга розкладається у два ряди й разом із шапкою займає
+     чверть екрана. Там лишаємо її на місці — простір важливіший. */
+  .catbar{position:static}
 }
 
 /* на вужчих екранах смуга коротшає */

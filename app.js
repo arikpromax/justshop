@@ -1007,7 +1007,15 @@
     const showTable = p.cat !== 'aksesuary' && !/^(one size|універсальний)$/i.test(p.sizes[0] || '');
 
     root.innerHTML = `
-      <div class="pdp__media">${plate(p, { sizes: false })}${shots.length > 1 ? `<div class="shots" id="shots">${shots.map((u, i) => `<button type="button" class="shots__b${i ? '' : ' on'}" data-u="${esc(u)}" aria-label="Фото ${i + 1}"><img src="${esc(u)}" alt=""></button>`).join('')}</div>` : ''}</div>
+      <div class="pdp__media">
+        <div class="shot" id="shot">
+          ${plate(p, { sizes: false })}
+          ${shots.length > 1 ? `
+          <button class="shot__a shot__a--p" type="button" id="shotP" aria-label="Попереднє фото">${icon('chev')}</button>
+          <button class="shot__a shot__a--n" type="button" id="shotN" aria-label="Наступне фото">${icon('chev')}</button>` : ''}
+        </div>
+        ${shots.length > 1 ? `<div class="shots" id="shots">${shots.map((u, i) => `<button type="button" class="shots__b${i ? '' : ' on'}" data-u="${esc(u)}" aria-label="Фото ${i + 1}"><img src="${esc(u)}" alt=""></button>`).join('')}</div>` : ''}
+      </div>
       <div>
         <nav class="mono" style="color:var(--mut);margin-bottom:14px"><a href="katalog.html">Каталог</a> / <a href="katalog.html?cat=${p.cat}">${esc(catName(p.cat))}</a></nav>
         <span class="pdp__brand">${p.brand ? esc(p.brand) + ' · ' : ''}${sku(p)}</span>
@@ -1036,14 +1044,44 @@
         </ul>
       </div>`;
 
+    /* Гортання фото: стрілки на самому знімку, мініатюри під ним,
+       палець убік на телефоні й стрілки клавіатури. Перший і останній
+       кадри замикаються в коло, щоб гортання не впиралося. */
+    let shot = 0;
+    const bigPic = $('.pdp__media .plate img');
+    const thumbs = $$('#shots [data-u]');
+    const show = i => {
+      if (shots.length < 2) return;
+      shot = (i + shots.length) % shots.length;
+      if (bigPic) bigPic.src = shots[shot];
+      thumbs.forEach((x, k) => x.classList.toggle('on', k === shot));
+    };
     const shotsBox = $('#shots');
     if (shotsBox) shotsBox.addEventListener('click', e => {
       const b = e.target.closest('[data-u]');
-      if (!b) return;
-      const big = $('.pdp__media .plate img');
-      if (big) big.src = b.dataset.u;
-      $$('#shots [data-u]').forEach(x => x.classList.toggle('on', x === b));
+      if (b) show(thumbs.indexOf(b));
     });
+    const prev = $('#shotP'), next = $('#shotN');
+    if (prev) prev.addEventListener('click', () => show(shot - 1));
+    if (next) next.addEventListener('click', () => show(shot + 1));
+    const shotBox = $('#shot');
+    if (shotBox && shots.length > 1) {
+      let x0 = 0, y0 = 0;
+      shotBox.addEventListener('touchstart', e => {
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+      }, { passive: true });
+      shotBox.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - x0;
+        const dy = e.changedTouches[0].clientY - y0;
+        // вертикальний рух — це прокрутка сторінки, його не перехоплюємо
+        if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) show(shot + (dx < 0 ? 1 : -1));
+      }, { passive: true });
+      document.addEventListener('keydown', e => {
+        if (e.target.matches('input, textarea, select')) return;
+        if (e.key === 'ArrowLeft') show(shot - 1);
+        if (e.key === 'ArrowRight') show(shot + 1);
+      });
+    }
 
     const szPick = $('#szPick');
     if (szPick) szPick.addEventListener('click', e => {
@@ -1074,11 +1112,6 @@
     if (near.length) $('#near').innerHTML = near.map(card).join('');
     else $('#nearSec').hidden = true;
 
-    /* нижня панель на мобільному */
-    const bar = $('#bar');
-    bar.innerHTML = `<span class="bar__p">${money(p.price)}</span><button class="btn btn--sm" id="barAdd">${p.stock === false ? 'Під запит' : gone ? 'Немає' : 'Додати в кошик'}</button>`;
-    $('#barAdd').addEventListener('click', () => cta.click());
-    if (matchMedia('(max-width:640px)').matches) { bar.classList.add('on'); document.body.classList.add('has-bar'); }
   }
 
   /* ===========================================================
