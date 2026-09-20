@@ -138,6 +138,37 @@
     Object.keys(HEAD).forEach(k => put(k, v => { HEAD[k] = v; }));
   };
 
+  /* ---------- збережений каталог ----------
+
+     Сторінка приходить порожньою й тягне товари сама, тож кожен збій
+     мережі лишав вітрину голою. У звичайних магазинів такого немає:
+     там сторінку збирає сервер, і товари вже в ній.
+
+     Робимо своє: після вдалого запиту кладемо каталог у памʼять
+     браузера. Наступного разу малюємо з нього одразу, не чекаючи
+     мережі, а свіжі дані підміняються, щойно приїдуть. Тоді навіть
+     без звʼязку покупець бачить магазин, а не порожнечу. */
+  const BOX = 'js_shop_' + id;
+  const OLD = 7 * 24 * 3600 * 1000;   // старіше тижня не беремо
+
+  const remember = (items, texts, stockRows) => {
+    try {
+      localStorage.setItem(BOX, JSON.stringify({
+        at: Date.now(), items: items, texts: texts, stock: stockRows,
+      }));
+    } catch (e) { /* памʼять могла скінчитись — переживемо */ }
+  };
+  const recall = () => {
+    try {
+      const raw = localStorage.getItem(BOX);
+      if (!raw) return null;
+      const box = JSON.parse(raw);
+      if (!box || !box.at || Date.now() - box.at > OLD) return null;
+      if (!Array.isArray(box.items) || !box.items.length) return null;
+      return box;
+    } catch (e) { return null; }
+  };
+
   /* ---------- запит ---------- */
   const both = Promise.all([
     get('/items?site_id=eq.' + id + '&order=collection,sort_order' +
@@ -146,32 +177,43 @@
     stock().catch(() => null)   // складу може не бути — сайт це переживе
   ]);
 
-  const timeout = new Promise(r => setTimeout(() => r('slow'), WAIT));
+  const fresh = both.then(r => {
+    apply(r[0], r[1], r[2]);
+    remember(r[0], r[1], r[2]);
+    window.JS_SLOW = false;
+    return true;
+  });
 
-  window.JS_DATA_READY = Promise.race([both, timeout])
-    .then(res => {
-      if (res !== 'slow') { apply(res[0], res[1], res[2]); return true; }
-      /* Не вклались у відведений час. Раніше відповідь після цього
-         просто викидалась, і сайт назавжди лишався на запасних
-         позиціях із data.js — з чужими цінами й без фото. Тепер
-         чекаємо далі: приїдуть дані — застосуємо їх і попросимо
-         сторінку перемалюватись. */
-      window.JS_SLOW = true;
-      both.then(r => {
-        apply(r[0], r[1], r[2]);
-        window.JS_SLOW = false;
-        if (typeof window.JS_REDRAW === 'function') window.JS_REDRAW();
-      }).catch(() => {
-        /* Зовсім не дісталися бази. Мовчки лишати порожню вітрину не
-           можна: покупець має знати, що це збій, а не порожній магазин. */
-        window.JS_SLOW = false;
-        window.JS_FAIL = true;
-        if (typeof window.JS_REDRAW === 'function') window.JS_REDRAW();
-      });
-      /* А поки їх немає — краще порожньо, ніж показувати демо як товар.
-         swap тут не годиться: він мовчки пропускає порожній список. */
-      PRODUCTS.splice(0, PRODUCTS.length);
-      return false;
-    })
-    .catch(() => false);
+  const box = recall();
+  if (box) {
+    /* Є збережений каталог — малюємо з нього негайно. Свіжий підміниться
+       сам, щойно приїде; не приїде — покупець нічого й не помітить. */
+    apply(box.items, box.texts, box.stock);
+    window.JS_DATA_READY = Promise.resolve(true);
+    fresh
+      .then(() => { if (typeof window.JS_REDRAW === 'function') window.JS_REDRAW(); })
+      .catch(() => {});
+  } else {
+    /* Перший захід: чекаємо мережу, але недовго. */
+    const timeout = new Promise(r => setTimeout(() => r('slow'), WAIT));
+    window.JS_DATA_READY = Promise.race([fresh, timeout])
+      .then(res => {
+        if (res !== 'slow') return true;
+        window.JS_SLOW = true;
+        fresh
+          .then(() => { if (typeof window.JS_REDRAW === 'function') window.JS_REDRAW(); })
+          .catch(() => {
+            /* Зовсім не дісталися бази. Мовчки лишати порожню вітрину не
+               можна: покупець має знати, що це збій, а не порожній магазин. */
+            window.JS_SLOW = false;
+            window.JS_FAIL = true;
+            if (typeof window.JS_REDRAW === 'function') window.JS_REDRAW();
+          });
+        /* А поки їх немає — краще порожньо, ніж показувати демо як товар.
+           swap тут не годиться: він мовчки пропускає порожній список. */
+        PRODUCTS.splice(0, PRODUCTS.length);
+        return false;
+      })
+      .catch(() => false);
+  }
 })();
