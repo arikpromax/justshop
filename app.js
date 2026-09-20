@@ -299,6 +299,10 @@
         const on = $('#nav').classList.toggle('on');
         e.currentTarget.setAttribute('aria-expanded', String(on));
         e.currentTarget.innerHTML = icon(on ? 'close' : 'menu');
+        /* Меню висить нерухомо, а сторінка під ним доїжджає за інерцією —
+           і на телефоні це видно як змазаний, ніби подвоєний екран.
+           Поки меню відкрите, сторінку не рухаємо. */
+        document.body.classList.toggle('menu-on', on);
       });
     }
 
