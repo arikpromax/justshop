@@ -1050,11 +1050,28 @@
     let shot = 0;
     const bigPic = $('.pdp__media .plate img');
     const thumbs = $$('#shots [data-u]');
-    const show = i => {
+    const box = $('#shot');
+    /* Кадр іде туди, куди штовхнули, а новий заходить із протилежного
+       боку — так видно, що гортаєш, а не просто підміняєш картинку. */
+    const show = (i, dir) => {
       if (shots.length < 2) return;
+      const was = shot;
       shot = (i + shots.length) % shots.length;
-      if (bigPic) bigPic.src = shots[shot];
       thumbs.forEach((x, k) => x.classList.toggle('on', k === shot));
+      if (!bigPic || shot === was) return;
+      if (!box) { bigPic.src = shots[shot]; return; }
+      const d = dir || (shot > was ? 1 : -1);
+      const out = d > 0 ? 'is-l' : 'is-r';
+      const inn = d > 0 ? 'is-r' : 'is-l';
+      box.classList.add(out);
+      setTimeout(() => {
+        bigPic.src = shots[shot];
+        box.classList.add('no-anim');
+        box.classList.remove(out);
+        box.classList.add(inn);
+        void box.offsetWidth;            // щоб браузер помітив нову точку відліку
+        box.classList.remove('no-anim', inn);
+      }, 170);
     };
     const shotsBox = $('#shots');
     if (shotsBox) shotsBox.addEventListener('click', e => {
@@ -1062,20 +1079,30 @@
       if (b) show(thumbs.indexOf(b));
     });
     const prev = $('#shotP'), next = $('#shotN');
-    if (prev) prev.addEventListener('click', () => show(shot - 1));
-    if (next) next.addEventListener('click', () => show(shot + 1));
-    const shotBox = $('#shot');
+    if (prev) prev.addEventListener('click', () => show(shot - 1, -1));
+    if (next) next.addEventListener('click', () => show(shot + 1, 1));
+    const shotBox = box;
     if (shotBox && shots.length > 1) {
-      let x0 = 0, y0 = 0;
+      let x0 = 0, y0 = 0, swiped = false;
       shotBox.addEventListener('touchstart', e => {
-        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; swiped = false;
       }, { passive: true });
       shotBox.addEventListener('touchend', e => {
         const dx = e.changedTouches[0].clientX - x0;
         const dy = e.changedTouches[0].clientY - y0;
         // вертикальний рух — це прокрутка сторінки, його не перехоплюємо
-        if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) show(shot + (dx < 0 ? 1 : -1));
+        if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) {
+          swiped = true;
+          show(shot + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
+        }
       }, { passive: true });
+      /* Натиск по самому фото прибирає стрілки, щоб не затуляли річ.
+         Ще один натиск — і вони повертаються. */
+      shotBox.addEventListener('click', e => {
+        if (e.target.closest('.shot__a')) return;
+        if (swiped) { swiped = false; return; }
+        shotBox.classList.toggle('is-bare');
+      });
       document.addEventListener('keydown', e => {
         if (e.target.matches('input, textarea, select')) return;
         if (e.key === 'ArrowLeft') show(shot - 1);
