@@ -803,7 +803,10 @@
     const st = {
       q: url.searchParams.get('q') || '',
       cat: (url.searchParams.get('cat') || '').split(',').filter(Boolean),
-      brand: [], size: [], min: '', max: '', sort: 'pop', view: 'grid'
+      brand: [], size: [], min: '', max: '', sort: 'pop', view: 'grid',
+      /* «Лише в наявності»: під запит їде 3—10 днів, і покупцеві, який
+         хоче забрати сьогодні, такі позиції лише заважають. */
+      here: url.searchParams.get('here') === '1'
     };
     const BRANDS = Array.from(new Set(SHOWN.map(p => p.brand).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'uk'));
     /* Взуттєві 44 упереміш з одяговими L читаються як каша, тому розміри
@@ -854,6 +857,11 @@
             <button class="iconbtn" type="button" data-drwx aria-label="Закрити">${icon('close')}</button>
           </div>
           <div class="drw__body flt" id="flt">
+            <label class="flthere">
+              <input type="checkbox" id="fltHere"${st.here ? ' checked' : ''}>
+              <span><b>Лише в наявності</b><em>Без тих, що веземо під запит 3—10 днів</em></span>
+              <i>${SHOWN.filter(p => p.stock !== false && !outOfStock(p)).length}</i>
+            </label>
             <div class="flt__g"><h3>Категорія</h3><div class="fltlist">
               ${CATS.map(c => `<label><input type="checkbox" data-k="cat" value="${c.id}"${st.cat.includes(c.id) ? ' checked' : ''}>${esc(c.name)}<i>${SHOWN.filter(p => p.cat === c.id).length}</i></label>`).join('')}</div>
             </div>
@@ -913,6 +921,7 @@
       let list = SHOWN.slice();
       const s = norm(st.q);
       if (s) list = list.filter(p => hit(p, s));
+      if (st.here) list = list.filter(p => p.stock !== false && !outOfStock(p));
       if (st.cat.length) list = list.filter(p => st.cat.includes(p.cat));
       if (st.brand.length) list = list.filter(p => st.brand.includes(p.brand));
       if (st.size.length) list = list.filter(p => p.sizes.some(x => st.size.includes(x)));
@@ -961,6 +970,7 @@
       st.cat.forEach(c => chipsArr.push(['cat:' + c, catName(c)]));
       st.brand.forEach(b => chipsArr.push(['brand:' + b, b]));
       st.size.forEach(x => chipsArr.push(['size:' + x, 'розмір ' + x]));
+      if (st.here) chipsArr.push(['here', 'лише в наявності']);
       if (st.min) chipsArr.push(['min', 'від ' + st.min]);
       if (st.max) chipsArr.push(['max', 'до ' + st.max]);
       $('#act').innerHTML = chipsArr.length
@@ -976,7 +986,7 @@
     }
 
     function resetAll() {
-      st.q = ''; st.cat = []; st.brand = []; st.size = []; st.min = ''; st.max = '';
+      st.q = ''; st.cat = []; st.brand = []; st.size = []; st.min = ''; st.max = ''; st.here = false;
       $$('#flt input[type=checkbox]').forEach(i => { i.checked = false; });
       $$('#flt [data-sz]').forEach(i => i.setAttribute('aria-pressed', 'false'));
       $('#pMin').value = ''; $('#pMax').value = ''; q.value = '';
@@ -1010,6 +1020,7 @@
       const k = b.dataset.drop;
       if (k === 'all') { resetAll(); return; }
       if (k === 'q') { st.q = ''; q.value = ''; }
+      else if (k === 'here') { st.here = false; $('#fltHere').checked = false; }
       else if (k === 'min') { st.min = ''; $('#pMin').value = ''; }
       else if (k === 'max') { st.max = ''; $('#pMax').value = ''; }
       else {
@@ -1048,6 +1059,7 @@
         if (e[0].isIntersecting && !$('#more').hidden) draw(false);
       }, { rootMargin: '600px 0px' }).observe($('#more'));
     }
+    $('#fltHere').addEventListener('change', e => { st.here = e.target.checked; apply(); });
     $('#fltReset').addEventListener('click', resetAll);
     $('#nonewish').addEventListener('click', resetAll);
     $('#noneAgain').addEventListener('click', () => location.reload());
