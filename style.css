@@ -261,7 +261,9 @@ ul,ol{padding:0;list-style:none}
 /* ---------- сторінка товару ---------- */
 .pdp{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(24px,4vw,70px);align-items:start}
 .pdp__media{position:sticky;top:88px}
-.pdp__media .plate{aspect-ratio:1/1.08;border:1px solid var(--line)}
+/* Фото не має займати весь екран: інакше ряд мініатюр лишається за
+   краєм, і покупець не здогадується, що кадрів більше. */
+.pdp__media .plate{aspect-ratio:1/1.08;border:1px solid var(--line);max-height:calc(100dvh - 250px)}
 .shots{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .shots__b{width:66px;height:66px;padding:0;overflow:hidden;background:var(--paper);border:1px solid var(--line);transition:border-color .15s}
 .shots__b img{width:100%;height:100%;object-fit:contain}

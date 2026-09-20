@@ -1007,7 +1007,7 @@
     const showTable = p.cat !== 'aksesuary' && !/^(one size|універсальний)$/i.test(p.sizes[0] || '');
 
     root.innerHTML = `
-      <div class="pdp__media">${plate(p, { sizes: false })}${shots.length > 1 ? `<div class="shots" id="shots">${shots.map((u, i) => `<button type="button" class="shots__b${i ? '' : ' on'}" data-u="${esc(u)}" aria-label="Фото ${i + 1}"><img src="${esc(u)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}</div>
+      <div class="pdp__media">${plate(p, { sizes: false })}${shots.length > 1 ? `<div class="shots" id="shots">${shots.map((u, i) => `<button type="button" class="shots__b${i ? '' : ' on'}" data-u="${esc(u)}" aria-label="Фото ${i + 1}"><img src="${esc(u)}" alt=""></button>`).join('')}</div>` : ''}</div>
       <div>
         <nav class="mono" style="color:var(--mut);margin-bottom:14px"><a href="katalog.html">Каталог</a> / <a href="katalog.html?cat=${p.cat}">${esc(catName(p.cat))}</a></nav>
         <span class="pdp__brand">${p.brand ? esc(p.brand) + ' · ' : ''}${sku(p)}</span>
