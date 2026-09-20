@@ -1131,6 +1131,7 @@
         // перший помітний рух вирішує: гортаємо фото чи крутимо сторінку
         if (!lock && (Math.abs(mx) > 8 || Math.abs(my) > 8)) lock = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
         if (lock !== 'x') return;
+        if (shotBox.classList.contains('is-zoom')) return;   // наближене фото тягають, не гортають
         dx = mx;
         slide('calc(' + (-shot * 100) + '% + ' + Math.round(dx) + 'px)', false);
       }, { passive: true });
@@ -1153,6 +1154,69 @@
         if (e.key === 'ArrowLeft') show(shot - 1);
         if (e.key === 'ArrowRight') show(shot + 1);
       });
+    }
+
+    /* ---------- приближення ----------
+       На комп'ютері: ведеш мишею по фото — воно наближається в тій
+       точці, де курсор. Так дивляться фактуру тканини й шви.
+       На телефоні: розводиш двома пальцями. Поки наближено, один
+       палець тягає кадр, а не гортає — інакше не роздивитись. */
+    if (shotBox) {
+      const pic = () => track ? track.children[shot] : $('.pdp__media .plate img');
+      let zoom = 1, px = 0, py = 0;
+      const put = () => {
+        const im = pic();
+        if (!im) return;
+        im.style.transition = zoom === 1 ? 'transform .25s' : 'none';
+        im.style.transform = zoom === 1 ? '' : 'translate(' + px + 'px,' + py + 'px) scale(' + zoom + ')';
+        shotBox.classList.toggle('is-zoom', zoom > 1);
+      };
+      const reset = () => { zoom = 1; px = 0; py = 0; put(); };
+
+      /* мишею */
+      if (matchMedia('(hover:hover)').matches) {
+        shotBox.addEventListener('mousemove', e => {
+          const im = pic();
+          if (!im) return;
+          const r = shotBox.getBoundingClientRect();
+          const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+          im.style.transition = 'none';
+          im.style.transformOrigin = (fx * 100) + '% ' + (fy * 100) + '%';
+          im.style.transform = 'scale(2.2)';
+          shotBox.classList.add('is-zoom');
+        });
+        shotBox.addEventListener('mouseleave', () => {
+          const im = pic();
+          if (im) { im.style.transition = 'transform .25s'; im.style.transformOrigin = ''; im.style.transform = ''; }
+          shotBox.classList.remove('is-zoom');
+        });
+      }
+
+      /* пальцями */
+      let d0 = 0, z0 = 1, mx = 0, my = 0, px0 = 0, py0 = 0;
+      const gap = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+      shotBox.addEventListener('touchstart', e => {
+        if (e.touches.length === 2) { d0 = gap(e.touches); z0 = zoom; }
+        else if (zoom > 1) { mx = e.touches[0].clientX; my = e.touches[0].clientY; px0 = px; py0 = py; }
+      }, { passive: true });
+      shotBox.addEventListener('touchmove', e => {
+        if (e.touches.length === 2 && d0) {
+          zoom = Math.min(3.5, Math.max(1, z0 * gap(e.touches) / d0));
+          if (zoom === 1) { px = 0; py = 0; }
+          put();
+        } else if (e.touches.length === 1 && zoom > 1) {
+          const r = shotBox.getBoundingClientRect();
+          const lim = (r.width * (zoom - 1)) / 2;
+          px = Math.max(-lim, Math.min(lim, px0 + e.touches[0].clientX - mx));
+          py = Math.max(-lim, Math.min(lim, py0 + e.touches[0].clientY - my));
+          put();
+        }
+      }, { passive: true });
+      shotBox.addEventListener('touchend', e => {
+        if (!e.touches.length) { d0 = 0; if (zoom < 1.1) reset(); }
+      }, { passive: true });
+      /* гортання й ховання стрілок поки наближено не чіпаємо */
+      shotBox.addEventListener('click', e => { if (zoom > 1) e.stopPropagation(); }, true);
     }
 
     const szPick = $('#szPick');

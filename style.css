@@ -273,7 +273,11 @@ ul,ol{padding:0;list-style:none}
    зрівняли з фото: тепер межа проходить по самому знімку. */
 .pdp__media .plate{aspect-ratio:1;max-height:calc(100dvh - 250px)}
 .shot{position:relative}
-.shot{touch-action:pan-y}
+/* Поки фото наближене, пальці працюють із ним, а не зі сторінкою */
+.shot{touch-action:pan-y pinch-zoom}
+.shot.is-zoom{touch-action:none;cursor:zoom-out}
+.shot .plate{cursor:zoom-in}
+.shot.is-zoom .shot__a{opacity:0;pointer-events:none}
 .plate .track{display:flex;width:100%;height:100%;transition:transform .34s cubic-bezier(.22,.61,.36,1)}
 .plate .track img{flex:0 0 100%;width:100%;height:100%}
 .shot__a{position:absolute;top:50%;margin-top:-21px;width:42px;height:42px;display:grid;place-items:center;background:var(--paper);border:1px solid var(--line);color:var(--ink);opacity:.92;transition:opacity .22s,border-color .2s}
