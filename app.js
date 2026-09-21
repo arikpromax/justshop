@@ -1627,7 +1627,10 @@
 
     /* База сказала, чого не вистачає — приводимо кошик до того,
        що справді лежить на складі, і кажемо про це покупцю. */
+    const dropCache = () => { try { localStorage.removeItem('js_shop_' + (window.JS_DB ? JS_DB.id : '')); } catch (e) {} };
+
     function applyShort(short) {
+      dropCache();                    // залишки в браузері застаріли — наступна сторінка візьме свіжі
       let msg = '';
       (short || []).forEach(s => {
         const p = PRODUCTS.find(x => x.itemId === Number(s.item_id));
@@ -2011,7 +2014,7 @@
           toast('Щось уже забрали — перевірте кошик');
           return;
         }
-        if (res && res.ref) { no = res.ref; saved = true; oid = res.id; }
+        if (res && res.ref) { no = res.ref; saved = true; oid = res.id; dropCache(); }
       }
       const text = ['ЗАМОВЛЕННЯ ' + no, ''].concat(
         cart.map(l => { const it = byId(l.id); return '• ' + it.brand + ' ' + it.name + ' / ' + l.size + ' × ' + l.qty + ' — ' + Math.round(it.price * l.qty) + ' грн'; })
