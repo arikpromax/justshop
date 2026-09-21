@@ -161,7 +161,7 @@
      без звʼязку покупець бачить магазин, а не порожнечу. */
   const BOX = 'js_shop_' + id;
   const OLD = 7 * 24 * 3600 * 1000;   // старіше тижня не беремо
-  const NEW = 10 * 60 * 1000;         // свіже за останні десять хвилин не перепитуємо
+  const NEW = 15 * 1000;              // лише щоб не питати двічі, коли швидко клацають сторінки
 
   const remember = (items, texts, stockRows) => {
     try {
@@ -190,18 +190,22 @@
   ]);
 
   const box = recall();
-  /* Покупець ходить сайтом — десять, двадцять сторінок. Смикати базу
-     на кожній нема сенсу: каталог не міняється щохвилини, а трафік
-     бази платний. Поки збереженому менше десяти хвилин, мережу не
-     чіпаємо взагалі. */
+  /* Збережений каталог показуємо одразу, а свіжий тягнемо на кожній
+     сторінці: власник додав чи зняв товар в адмінці — покупець бачить це
+     вже за секунду, а не через десять хвилин. Стиснутий каталог важить
+     близько 60 КБ, тож трафіку бази це майже не додає. */
   const soon = box && Date.now() - box.at < NEW;
   const both = soon ? Promise.resolve(null) : ask();
 
+  /* true — якщо прийшло щось нове. Нічого не змінилось — сторінку не
+     перемальовуємо, щоб не збити покупцеві обраний розмір чи прокрутку. */
   const fresh = soon ? Promise.resolve(true) : both.then(r => {
-    apply(r[0], r[1], r[2]);
+    const same = !!box && JSON.stringify([r[0], r[1], r[2]]) ===
+      JSON.stringify([box.items, box.texts, box.stock]);
+    if (!same) apply(r[0], r[1], r[2]);
     remember(r[0], r[1], r[2]);
     window.JS_SLOW = false;
-    return true;
+    return !same;
   });
 
   if (box) {
@@ -210,7 +214,7 @@
     apply(box.items, box.texts, box.stock);
     window.JS_DATA_READY = Promise.resolve(true);
     if (!soon) fresh
-      .then(() => { if (typeof window.JS_REDRAW === 'function') window.JS_REDRAW(); })
+      .then(changed => { if (changed && typeof window.JS_REDRAW === 'function') window.JS_REDRAW(); })
       .catch(() => {});
   } else {
     /* Перший захід: чекаємо мережу, але недовго. */
