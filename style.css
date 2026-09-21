@@ -726,15 +726,6 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
 .dd__i em{display:block;margin-top:2px;font-style:normal;font-size:12px;color:var(--mut)}
 .dd__more{padding:13px;font-size:13px;color:var(--mut)}
 
-/* «Лише в наявності» — перший рядок у фільтрах, бо це найчастіший вибір */
-.flthere{display:flex;align-items:flex-start;gap:11px;padding:13px;margin-bottom:18px;
-  border:1px solid var(--line);border-radius:var(--r);cursor:pointer;transition:border-color .2s}
-.flthere:hover{border-color:var(--mut)}
-.flthere input{width:18px;height:18px;margin-top:2px;accent-color:var(--acc);flex:none;cursor:pointer}
-.flthere span{flex:1;min-width:0}
-.flthere b{display:block;font-size:14px;font-weight:600}
-.flthere em{display:block;margin-top:3px;font-style:normal;font-size:12px;color:var(--mut);line-height:1.4}
-.flthere i{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--mut)}
 
 /* Поле, якого бракує: блимає рамкою й здригається, щоб око знайшло */
 .dd--ask .dd__b{border-color:var(--acc)}
