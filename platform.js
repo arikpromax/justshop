@@ -141,7 +141,10 @@
     (texts || []).forEach(r => { T[r.key] = r.value; });
     const put = (key, fn) => { if (T[key] != null && T[key] !== '') fn(T[key]); };
 
-    ['phone', 'hours', 'pickup', 'ig', 'tg', 'tiktok', 'claim'].forEach(k => put(k, v => { CFG[k] = v; }));
+    ['phone', 'hours', 'pickup', 'ig', 'tg', 'tiktok', 'claim', 'email'].forEach(k => put(k, v => { CFG[k] = v; }));
+    put('seller_name', v => { CFG.sellerName = v; });
+    put('seller_code', v => { CFG.sellerCode = v; });
+    put('seller_address', v => { CFG.sellerAddress = v; });
     put('free_from', v => { CFG.freeFrom = Number(String(v).replace(/\D/g, '')) || 0; });
     Object.keys(HEAD).forEach(k => put(k, v => { HEAD[k] = v; }));
   };

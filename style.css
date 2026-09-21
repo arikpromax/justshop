@@ -222,6 +222,9 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
 .ft__soc{display:flex;gap:8px;margin-top:16px}
 .ft__soc a{width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--line-dk);font-size:18px;transition:.2s}
 .ft__soc a:hover{background:var(--acc);border-color:var(--acc);color:#fff}
+/* продавець і LiqPay — цього вимагає закон про електронну комерцію та сам LiqPay */
+.ft__legal{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;padding:16px 0;border-top:1px solid var(--line-dk);font-size:12.5px;line-height:1.5;color:var(--mut-dk)}
+.ft__lp{height:18px;width:auto;display:block}
 .ft__bot{display:flex;flex-wrap:wrap;gap:10px 22px;justify-content:space-between;padding:18px 0;border-top:1px solid var(--line-dk);font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut-dk)}
 
 /* ---------- каталог ---------- */
@@ -619,6 +622,15 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
 .co2__big{color:#fff !important}
 .co2__big b{font-family:var(--dsp);font-weight:800;font-stretch:112%;font-size:clamp(24px,3vw,34px);letter-spacing:-.03em}
 .co2__foot .btn{background:var(--acc);border-color:var(--acc)}
+/* згода з офертою — біля самої кнопки, щоб її не проґавити */
+.agree{display:flex;align-items:flex-start;gap:10px;max-width:46ch;font-size:13px;line-height:1.45;color:var(--mut-dk);cursor:pointer}
+.agree input{appearance:none;flex:none;width:18px;height:18px;margin-top:1px;border:1px solid var(--mut-dk);border-radius:var(--r);display:grid;place-items:center;cursor:pointer;transition:.15s}
+.agree input:checked{background:var(--acc);border-color:var(--acc)}
+.agree input:checked::after{content:"";width:9px;height:5px;border:2px solid #fff;border-top:0;border-right:0;transform:translateY(-1px) rotate(-45deg)}
+.agree a{color:#fff;text-decoration:underline;text-underline-offset:2px}
+.agree a:hover{color:var(--acc)}
+.agree--ask{animation:ask .42s ease}
+.agree--ask input{border-color:var(--acc);box-shadow:0 0 0 3px rgba(255,59,20,.25)}
 .co2__foot .btn:hover{background:#fff;border-color:#fff;color:var(--ink)}
 @media (max-width:860px){.co2__g{grid-template-columns:1fr}}
 
@@ -715,3 +727,15 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
 /* Поле, якого бракує: блимає рамкою й здригається, щоб око знайшло */
 .dd--ask .dd__b{border-color:var(--acc)}
 .dd--ask{animation:ask .42s ease}
+
+/* ---------- юридичні сторінки: оферта й політика ---------- */
+.doc{max-width:78ch}
+.doc h2{font-size:19px;font-weight:600;letter-spacing:-.015em;margin:clamp(28px,3.4vw,40px) 0 12px}
+.doc p,.doc li{font-size:15px;line-height:1.65;color:var(--tx)}
+.doc p+p{margin-top:10px}
+.doc ul{margin:8px 0 0;padding-left:20px;list-style:disc}
+.doc li+li{margin-top:5px}
+.doc a{text-decoration:underline;text-underline-offset:2px}
+.doc__meta{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.doc__req{margin-top:clamp(28px,3.4vw,40px);padding:clamp(18px,2.2vw,26px);border:1px solid var(--line)}
+.doc__req p{margin:0}

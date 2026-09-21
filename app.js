@@ -355,18 +355,26 @@
             <li><a href="dostavka.html#povernennia">Обмін і повернення</a></li>
             <li><a href="dostavka.html#rozmiry">Розмірна сітка</a></li>
             <li><a href="dostavka.html#trek">Відстежити посилку</a></li>
+            <li><a href="oferta.html">Публічна оферта</a></li>
+            <li><a href="polityka.html">Політика конфіденційності</a></li>
           </ul></div>
           <div><h4>Звʼязок</h4><ul>
             <li><a href="${esc(CFG.ig)}" target="_blank" rel="noopener">Instagram</a></li>
             <li><a href="${esc(CFG.tg)}" target="_blank" rel="noopener">Telegram-канал</a></li>
             <li><a href="kontakty.html">${esc(CFG.pickup.split(',')[0])} — самовивіз</a></li>
+            <li><a href="tel:+${esc(String(CFG.phone).replace(/\D/g, ''))}">${esc(CFG.phone)}</a></li>
+            <li><a href="mailto:${esc(CFG.email)}">${esc(CFG.email)}</a></li>
             <li>${esc(CFG.hours)}</li>
           </ul></div>
+        </div>
+        <div class="ft__legal">
+          <p>${esc(CFG.sellerName)} · РНОКПП ${esc(CFG.sellerCode)} · ${esc(CFG.sellerAddress)}</p>
+          <img class="ft__lp" src="img/liqpay.svg" alt="LiqPay" width="86" height="18" onerror="this.remove()">
         </div>
         <div class="ft__bot">
           <span>© ${new Date().getFullYear()} ${esc(CFG.brand)}</span>
           <span>Доставка: Нова Пошта</span>
-          <span>Оплата: наложений платіж</span>
+          <span>Оплата: карткою на сайті · накладений платіж</span>
         </div>
       </div>`;
     }
@@ -398,6 +406,15 @@
     $$('[data-txt]').forEach(el => {
       const v = HEAD[el.dataset.txt];
       if (v != null && v !== '') el.innerHTML = v;
+    });
+    /* Реквізити продавця, пошта й телефон — з адмінки, тож оферта,
+       політика й контакти завжди показують ті самі дані. */
+    $$('[data-cfg]').forEach(el => {
+      const k = el.dataset.cfg, v = CFG[k];
+      if (v == null || v === '') return;
+      el.textContent = typeof v === 'number' ? v.toLocaleString('uk-UA') : v;
+      if (el.tagName === 'A' && k === 'email') el.href = 'mailto:' + v;
+      if (el.tagName === 'A' && k === 'phone') el.href = 'tel:+' + String(v).replace(/\D/g, '');
     });
   }
 
@@ -1502,7 +1519,7 @@
      речей під запит в особистих. */
   const PAY = [
     { id: 'online', n: 'Карткою на сайті', d: 'Visa, Mastercard, Apple Pay чи Google Pay — через LiqPay', for: 'all', online: true },
-    { id: 'cod', n: 'Наложений платіж', d: 'Оплата при отриманні, комісію бере НП', for: 'np' },
+    { id: 'cod', n: 'Накладений платіж', d: 'Оплата при отриманні, комісію бере НП', for: 'np' },
     { id: 'cash', n: 'Готівкою при самовивозі', d: 'Розрахунок на місці', for: 'pickup' }
   ];
 
@@ -1665,7 +1682,7 @@
     }
 
     const form = {
-      dlv: 'np_branch', pay: 'cod',
+      dlv: 'np_branch', pay: 'cod', agree: false,
       cityRef: '', cityName: '', brRef: '', brName: ''
     };
     const isNP = () => form.dlv.indexOf('np_') === 0;
@@ -1763,8 +1780,17 @@
             <span>Доставка<b id="sDlv"></b></span>
             <span class="co2__big">До сплати<b id="sTot"></b></span>
           </div>
+          <label class="agree" id="agreeBox">
+            <input type="checkbox" id="fAgree"${form.agree ? ' checked' : ''}>
+            <span>Погоджуюсь з умовами <a href="oferta.html" target="_blank">публічної оферти</a> та <a href="polityka.html" target="_blank">політикою конфіденційності</a></span>
+          </label>
           <button class="btn" type="submit" form="ord">Оформити замовлення ${icon('arrow')}</button>
         </div>`;
+
+      $('#fAgree').addEventListener('change', e => {
+        form.agree = e.target.checked;
+        if (form.agree) $('#agreeBox').classList.remove('agree--ask');
+      });
 
       $('#lines').addEventListener('click', e => {
         const q = e.target.closest('[data-q]'), d = e.target.closest('[data-del]');
@@ -1948,10 +1974,10 @@
       const notes = [];
       if (isNP() && !free) notes.push('Доставку рахує Нова Пошта за своїм тарифом — оплачується при отриманні.');
       if (isNP() && free) notes.push('Сума понад ' + money(CFG.freeFrom) + ' — доставку Новою Поштою оплачуємо ми.');
-      if (form.pay === 'cod') notes.push('За наложений платіж Нова Пошта бере власну комісію.');
+      if (form.pay === 'cod') notes.push('За накладений платіж Нова Пошта бере власну комісію.');
       if (form.pay === 'online') notes.push(payOn
         ? 'Після оформлення відкриється захищена сторінка оплати LiqPay.'
-        : 'Оплата карткою запрацює найближчим часом — поки що оберіть наложений платіж.');
+        : 'Оплата карткою запрацює найближчим часом — поки що оберіть накладений платіж.');
       $('#sNote').textContent = notes.join(' ');
     }
 
@@ -1973,10 +1999,19 @@
         else if (bad) bad.scrollIntoView({ block: 'center', behavior: 'smooth' });
         return;
       }
+      /* Без згоди з офертою договір не укладається — так вимагає й LiqPay */
+      if (!form.agree) {
+        const box = $('#agreeBox');
+        box.classList.remove('agree--ask');
+        void box.offsetWidth;                     // щоб підсвітка блимнула і вдруге
+        box.classList.add('agree--ask');
+        toast('Підтвердіть згоду з умовами оферти');
+        return;
+      }
       /* LiqPay ще не підключено — не створюємо замовлення, яке однаково
          не вийде оплатити, а просимо обрати інший спосіб. */
       if (form.pay === 'online' && !payOn) {
-        toast('Оплата карткою ще налаштовується — оберіть наложений платіж');
+        toast('Оплата карткою ще налаштовується — оберіть накладений платіж');
         return;
       }
 
