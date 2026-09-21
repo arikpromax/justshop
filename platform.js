@@ -58,6 +58,8 @@
   };
 
   window.JS_DB = { id: id, rpc: rpc };
+  // Функція бота: вона ж готує оплату карткою й приймає відповідь LiqPay
+  window.JS_FN = DB.replace('/rest/v1', '/functions/v1/tg-bot');
 
   /* ---------- перетворення рядків бази у формат data.js ---------- */
   const byCol = rows => {

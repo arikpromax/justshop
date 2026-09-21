@@ -366,7 +366,7 @@
         <div class="ft__bot">
           <span>© ${new Date().getFullYear()} ${esc(CFG.brand)}</span>
           <span>Доставка: Нова Пошта</span>
-          <span>Оплата: картка ФОП · наложений платіж</span>
+          <span>Оплата: наложений платіж</span>
         </div>
       </div>`;
     }
@@ -1483,13 +1483,92 @@
     { id: 'np_courier', n: 'Курʼєр Нової Пошти', d: 'Привезуть на вашу адресу', c: 'За тарифом НП' },
     { id: 'pickup', n: 'Самовивіз, Київ', d: 'Адресу надсилаємо після підтвердження', c: '0 грн' }
   ];
+  /* «Карткою на сайті» зʼявляється лише тоді, коли в Supabase лежать ключі
+     LiqPay (див. payOn у checkout). Оплати за реквізитами на сайті немає:
+     реквізити лишились тільки для передоплати речей під запит в особистих. */
   const PAY = [
-    { id: 'card', n: 'На картку ФОП', d: 'Реквізити надішлемо після підтвердження', for: 'all' },
+    { id: 'online', n: 'Карткою на сайті', d: 'Visa, Mastercard, Apple Pay чи Google Pay — через LiqPay', for: 'all', online: true },
     { id: 'cod', n: 'Наложений платіж', d: 'Оплата при отриманні, комісію бере НП', for: 'np' },
     { id: 'cash', n: 'Готівкою при самовивозі', d: 'Розрахунок на місці', for: 'pickup' }
   ];
 
+  /* ===========================================================
+     ОПЛАТА КАРТКОЮ (LiqPay)
+     =========================================================== */
+  /* Підпис платежу робить функція в Supabase — там лежить приватний ключ.
+     Сюди приходять лише готові data й signature, а суму функція бере з бази. */
+  function payGo(id, ref) {
+    const back = location.origin + location.pathname + '?paid=' + encodeURIComponent(ref) + '&o=' + id;
+    return fetch(JS_FN + '?pay=' + id + '&back=' + encodeURIComponent(back), { method: 'POST' })
+      .then(r => r.json())
+      .then(r => {
+        if (!r || !r.data || !r.signature) throw new Error((r && r.error) || 'pay');
+        const f = document.createElement('form');
+        f.method = 'POST'; f.action = r.url; f.acceptCharset = 'utf-8'; f.hidden = true;
+        [['data', r.data], ['signature', r.signature]].forEach(([k, v]) => {
+          const i = document.createElement('input');
+          i.type = 'hidden'; i.name = k; i.value = v;
+          f.appendChild(i);
+        });
+        document.body.appendChild(f);
+        f.submit();
+      });
+  }
+
+  /* Екран після оплати. LiqPay повертає покупця сюди і коли вийшло, і коли
+     ні, тож не віримо самому поверненню: питаємо базу, що з оплатою. */
+  function payScreen(id, ref, state) {
+    const wrap = $('#co') || $('#done');
+    if (!wrap) return;
+    const ok = state === 'paid';
+    const gone = state === 'cancelled';
+    const wait = state === 'check';
+    const broken = state === 'broken';
+    const title = ok ? 'Оплату отримали' : gone ? 'Замовлення скасовано' : wait ? 'Перевіряємо оплату…' : broken ? 'Оплата не відкрилась' : 'Оплата не пройшла';
+    const lead = ok ? 'Замовлення вже в роботі. Незабаром звʼяжемося з вами, щоб підтвердити відправку.'
+      : gone ? 'Оплата не надійшла за 30 хвилин, тож товар повернувся в продаж. Оформіть замовлення ще раз.'
+      : wait ? 'Це займає кілька секунд.'
+      : broken ? 'Замовлення збережене, але сторінка LiqPay не відкрилась. Спробуйте ще раз — якщо не оплатити протягом 30 хвилин, замовлення скасується само.'
+      : 'Гроші не списалися. Спробуйте ще раз — якщо не оплатити протягом 30 хвилин, замовлення скасується само.';
+    wrap.outerHTML = `<div class="done" id="done">
+      ${ok ? `<div class="done__ok">${icon('check')}</div>` : ''}
+      <h1 class="dsp h-md">${title}</h1>
+      <p class="lead" style="max-width:46ch;margin:0 auto">${lead}</p>
+      <p class="done__code">Номер ${esc(ref)}</p>
+      <div class="done__cta">
+        ${ok || gone || wait ? `<a class="btn" href="katalog.html">Повернутися в каталог ${icon('arrow')}</a>`
+          : `<button type="button" class="btn" id="payAgain">Оплатити ще раз ${icon('arrow')}</button>`}
+      </div>
+    </div>`;
+    const again = $('#payAgain');
+    if (again) again.addEventListener('click', () => {
+      again.disabled = true; again.textContent = 'Відкриваю оплату…';
+      payGo(id, ref).catch(() => { again.disabled = false; again.textContent = 'Оплатити ще раз'; toast('Оплата не відкрилась — спробуйте за хвилину'); });
+    });
+  }
+
+  // Повернення з LiqPay: koshyk.html?paid=<номер>&o=<id>. Відповідь банку
+  // доходить до нас за кілька секунд, тому питаємо кілька разів.
+  function payReturn() {
+    const q = new URL(location.href).searchParams;
+    const ref = q.get('paid'), id = Number(q.get('o'));
+    if (!ref || !id || !window.JS_FN) return false;
+    payScreen(id, ref, 'check');
+    let tries = 0;
+    const ask = () => fetch(JS_FN + '?paystate=' + id + '&ref=' + encodeURIComponent(ref))
+      .then(r => r.json())
+      .then(r => {
+        const state = !r || !r.ok ? 'failed' : r.state === 'paid' ? 'paid' : r.status === 'cancelled' ? 'cancelled' : r.state;
+        if (state === 'paid' || state === 'cancelled' || state === 'failed' || ++tries >= 6) payScreen(id, ref, state === 'wait' ? 'failed' : state);
+        else setTimeout(ask, 2000);
+      })
+      .catch(() => { if (++tries >= 6) payScreen(id, ref, 'failed'); else setTimeout(ask, 2000); });
+    ask();
+    return true;
+  }
+
   function checkout() {
+    if (payReturn()) return;
     /* ---------- резерв на час оформлення ----------
        Поки покупець заповнює форму, його позиції відкладені в базі:
        інакше двоє можуть купити останню одиницю. Якщо оформлення так
@@ -1569,10 +1648,28 @@
     }
 
     const form = {
-      dlv: 'np_branch', pay: 'card',
+      dlv: 'np_branch', pay: 'online',
       cityRef: '', cityName: '', brRef: '', brName: ''
     };
     const isNP = () => form.dlv.indexOf('np_') === 0;
+
+    /* Оплата карткою: питаємо функцію, чи підключено LiqPay. Тестові ключі
+       (sandbox_) показуємо лише тому, хто відкрив кошик з ?paytest=1, —
+       інакше справжній покупець «оплатив» би тестовою карткою. */
+    let payOn = false, payTouched = false;
+    let payTest = false;
+    try {
+      if (new URL(location.href).searchParams.get('paytest') === '1') sessionStorage.setItem('js_paytest', '1');
+      payTest = sessionStorage.getItem('js_paytest') === '1';
+    } catch (e) {}
+    if (window.JS_FN && window.JS_DB && JS_DB.id) {
+      fetch(JS_FN + '?payon=' + JS_DB.id).then(r => r.json()).then(r => {
+        payOn = !!(r && r.online && (!r.sandbox || payTest));
+        if (!payOn || !$('#pay')) return;
+        if (!payTouched) form.pay = 'online';
+        payOpts(); totals();
+      }).catch(() => {});
+    }
     const isBranch = () => form.dlv === 'np_branch' || form.dlv === 'np_postomat';
 
     function lines() {
@@ -1809,13 +1906,14 @@
     }
 
     function payOpts() {
-      const av = PAY.filter(p => p.for === 'all' || (p.for === 'np' && isNP()) || (p.for === 'pickup' && form.dlv === 'pickup'));
+      const av = PAY.filter(p => (!p.online || payOn) &&
+        (p.for === 'all' || (p.for === 'np' && isNP()) || (p.for === 'pickup' && form.dlv === 'pickup')));
       if (!av.some(p => p.id === form.pay)) form.pay = av[0].id;
       $('#pay').innerHTML = av.map(p => `<label class="pay">
         <input type="radio" name="pay" value="${p.id}"${p.id === form.pay ? ' checked' : ''}>
         <span><b>${esc(p.n)}</b><em>${esc(p.d)}</em></span>
       </label>`).join('');
-      $('#pay').onchange = e => { form.pay = e.target.value; totals(); };
+      $('#pay').onchange = e => { form.pay = e.target.value; payTouched = true; totals(); };
     }
 
     function totals() {
@@ -1828,7 +1926,7 @@
       if (isNP() && !free) notes.push('Доставку рахує Нова Пошта за своїм тарифом — оплачується при отриманні.');
       if (isNP() && free) notes.push('Сума понад ' + money(CFG.freeFrom) + ' — доставку Новою Поштою оплачуємо ми.');
       if (form.pay === 'cod') notes.push('За наложений платіж Нова Пошта бере власну комісію.');
-      if (form.pay === 'card') notes.push('Реквізити надішлемо після підтвердження наявності.');
+      if (form.pay === 'online') notes.push('Після оформлення відкриється захищена сторінка оплати LiqPay.');
       $('#sNote').textContent = notes.join(' ');
     }
 
@@ -1852,6 +1950,7 @@
          мовчить — сайт працює як раніше, просто без обліку. */
       let no = 'JS' + String(Date.now()).slice(-6);
       let saved = false;                 // замовлення в базі — його вже побачив бот
+      let oid = 0;
       const db = window.JS_DB;
       const dbLines = orderLines();
       if (db && dbLines.length) {
@@ -1891,7 +1990,7 @@
           toast('Щось уже забрали — перевірте кошик');
           return;
         }
-        if (res && res.ref) { no = res.ref; saved = true; }
+        if (res && res.ref) { no = res.ref; saved = true; oid = res.id; }
       }
       const text = ['ЗАМОВЛЕННЯ ' + no, ''].concat(
         cart.map(l => { const it = byId(l.id); return '• ' + it.brand + ' ' + it.name + ' / ' + l.size + ' × ' + l.qty + ' — ' + Math.round(it.price * l.qty) + ' грн'; })
@@ -1937,6 +2036,15 @@
         }
       });
       cart = []; writeCart(cart);
+
+      /* Карткою: одразу на сторінку LiqPay. Якщо вона не відкрилась —
+         показуємо екран, з якого можна спробувати ще раз. */
+      if (saved && oid && form.pay === 'online') {
+        const btn = $('button[form=ord]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Відкриваю оплату…'; }
+        payGo(oid, no).catch(() => payScreen(oid, no, 'broken'));
+        return;
+      }
 
       /* Замовлення в базі — магазин уже отримав його в Telegram, і покупцеві
          нічого пересилати не треба. Лише коли база не відповіла, лишається
