@@ -162,6 +162,7 @@
   const BOX = 'js_shop_' + id;
   const OLD = 7 * 24 * 3600 * 1000;   // старіше тижня не беремо
   const NEW = 15 * 1000;              // лише щоб не питати двічі, коли швидко клацають сторінки
+  const FAST = 500;                   // скільки чекаємо свіже, перш ніж показати збережене
 
   const remember = (items, texts, stockRows) => {
     try {
@@ -199,23 +200,38 @@
 
   /* true — якщо прийшло щось нове. Нічого не змінилось — сторінку не
      перемальовуємо, щоб не збити покупцеві обраний розмір чи прокрутку. */
-  const fresh = soon ? Promise.resolve(true) : both.then(r => {
-    const same = !!box && JSON.stringify([r[0], r[1], r[2]]) ===
-      JSON.stringify([box.items, box.texts, box.stock]);
-    if (!same) apply(r[0], r[1], r[2]);
+  // Що зараз показано — щоб знати, чи прийшло щось нове
+  let shown = box ? JSON.stringify([box.items, box.texts, box.stock]) : '';
+  const take = r => {
+    const now = JSON.stringify([r[0], r[1], r[2]]);
+    const changed = now !== shown;
+    shown = now;
+    apply(r[0], r[1], r[2]);
     remember(r[0], r[1], r[2]);
     window.JS_SLOW = false;
-    return !same;
-  });
+    return changed;
+  };
+  const fresh = soon ? Promise.resolve(true) : both.then(take);
 
-  if (box) {
-    /* Є збережений каталог — малюємо з нього негайно. Свіжий підміниться
-       сам, щойно приїде; не приїде — покупець нічого й не помітить. */
+  if (box && soon) {
     apply(box.items, box.texts, box.stock);
     window.JS_DATA_READY = Promise.resolve(true);
-    if (!soon) fresh
-      .then(changed => { if (changed && typeof window.JS_REDRAW === 'function') window.JS_REDRAW(); })
-      .catch(() => {});
+  } else if (box) {
+    /* Є збережений каталог. Свіжому даємо пів секунди: зазвичай він встигає,
+       і сторінка одразу показує те, що власник щойно змінив в адмінці.
+       Не встиг (повільний інтернет) — малюємо збережене, а свіже
+       підставимо, щойно приїде. */
+    const late = new Promise(r => setTimeout(() => r('late'), FAST));
+    window.JS_DATA_READY = Promise.race([fresh.then(() => 'fresh'), late])
+      .then(res => {
+        if (res === 'fresh') return true;
+        apply(box.items, box.texts, box.stock);
+        fresh
+          .then(changed => { if (changed && typeof window.JS_REDRAW === 'function') window.JS_REDRAW(); })
+          .catch(() => {});
+        return true;
+      })
+      .catch(() => { apply(box.items, box.texts, box.stock); return true; });
   } else {
     /* Перший захід: чекаємо мережу, але недовго. */
     const timeout = new Promise(r => setTimeout(() => r('slow'), WAIT));
@@ -239,4 +255,19 @@
       })
       .catch(() => false);
   }
+
+  /* Вкладка сайту вже відкрита, а в сусідній власник щось змінив в адмінці.
+     Щойно повертаються на сайт — тихо беремо свіже й, якщо щось змінилось,
+     перемальовуємо. Кошик лише оновлюємо без перемальовки: там уже введені
+     імʼя, телефон і відділення, їх не можна збити. */
+  let lastAsk = Date.now();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || Date.now() - lastAsk < NEW) return;
+    lastAsk = Date.now();
+    ask().then(take).then(changed => {
+      if (!changed || typeof window.JS_REDRAW !== 'function') return;
+      if (document.body.dataset.page === 'koshyk') return;
+      window.JS_REDRAW();
+    }).catch(() => {});
+  });
 })();
