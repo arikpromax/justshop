@@ -350,23 +350,23 @@
             </div>
           </div>
           <div><h4>Каталог</h4><ul>${CATS.slice(0, 6).map(c => `<li><a href="katalog.html?cat=${c.id}">${esc(c.name)}</a></li>`).join('')}</ul></div>
-          <div><h4>Клієнту</h4><ul>
+          <div><h4>Покупцям</h4><ul>
             <li><a href="dostavka.html">Доставка й оплата</a></li>
             <li><a href="dostavka.html#povernennia">Обмін і повернення</a></li>
-            <li><a href="dostavka.html#rozmiry">Розмірна сітка</a></li>
             <li><a href="dostavka.html#trek">Відстежити посилку</a></li>
-            <li><a href="oferta.html">Публічна оферта</a></li>
-            <li><a href="polityka.html">Політика конфіденційності</a></li>
+            <li><a href="kontakty.html">Контакти</a></li>
           </ul></div>
-          <div><h4>Звʼязок</h4><ul class="ft__con">
-            <li><a href="tel:+${esc(String(CFG.phone).replace(/\D/g, ''))}"><i>${icon('phone')}</i><span><em>Телефон</em>${esc(CFG.phone)}</span></a></li>
-            <li><a href="mailto:${esc(CFG.email)}"><i>${icon('mail')}</i><span><em>Пошта</em>${esc(CFG.email)}</span></a></li>
-            <li><div><i>${icon('clock')}</i><span><em>Графік</em>${esc(CFG.hours)}</span></div></li>
-            <li><a href="kontakty.html"><i>${icon('pin')}</i><span><em>Самовивіз</em>${esc(CFG.pickup.split(',')[0])}</span></a></li>
+          <div><h4>Служба підтримки</h4><ul class="ft__con">
+            <li><a href="tel:+${esc(String(CFG.phone).replace(/\D/g, ''))}">${icon('phone')}<span>${esc(CFG.phone)}</span></a></li>
+            <li><a href="mailto:${esc(CFG.email)}">${icon('mail')}<span>${esc(CFG.email)}</span></a></li>
+            <li><p>${icon('clock')}<span>${esc(CFG.hours)}</span></p></li>
           </ul></div>
         </div>
         <div class="ft__legal">
-          <p>${esc(CFG.sellerName)} · РНОКПП ${esc(CFG.sellerCode)} · ${esc(CFG.sellerAddress)}</p>
+          <nav class="ft__docs">
+            <a href="oferta.html">Публічна оферта</a>
+            <a href="polityka.html">Політика конфіденційності</a>
+          </nav>
           <div class="ft__pay">
             <img class="ft__lp" src="img/pay/liqpay.svg" alt="LiqPay" width="87" height="18">
             <img src="img/pay/visa.svg" alt="Visa" width="40" height="24"><img src="img/pay/mastercard.svg" alt="Mastercard" width="40" height="24"><img src="img/pay/apple-pay.svg" alt="Apple Pay" width="40" height="24"><img src="img/pay/google-pay.svg" alt="Google Pay" width="40" height="24">
@@ -374,8 +374,7 @@
         </div>
         <div class="ft__bot">
           <span>© ${new Date().getFullYear()} ${esc(CFG.brand)}</span>
-          <span>Доставка: Нова Пошта</span>
-          <span>Оплата: карткою на сайті · накладений платіж</span>
+          <span class="ft__seller">${esc(CFG.sellerName)} · РНОКПП ${esc(CFG.sellerCode)} · ${esc(CFG.sellerAddress)}</span>
         </div>
       </div>`;
     }
