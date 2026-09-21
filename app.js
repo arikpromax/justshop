@@ -1483,9 +1483,10 @@
     { id: 'np_courier', n: 'Курʼєр Нової Пошти', d: 'Привезуть на вашу адресу', c: 'За тарифом НП' },
     { id: 'pickup', n: 'Самовивіз, Київ', d: 'Адресу надсилаємо після підтвердження', c: '0 грн' }
   ];
-  /* «Карткою на сайті» зʼявляється лише тоді, коли в Supabase лежать ключі
-     LiqPay (див. payOn у checkout). Оплати за реквізитами на сайті немає:
-     реквізити лишились тільки для передоплати речей під запит в особистих. */
+  /* «Карткою на сайті» видно завжди, але приймає оплату лише тоді, коли
+     в Supabase лежать ключі LiqPay (див. payOn у checkout). Оплати за
+     реквізитами на сайті немає: реквізити лишились тільки для передоплати
+     речей під запит в особистих. */
   const PAY = [
     { id: 'online', n: 'Карткою на сайті', d: 'Visa, Mastercard, Apple Pay чи Google Pay — через LiqPay', for: 'all', online: true },
     { id: 'cod', n: 'Наложений платіж', d: 'Оплата при отриманні, комісію бере НП', for: 'np' },
@@ -1648,7 +1649,7 @@
     }
 
     const form = {
-      dlv: 'np_branch', pay: 'online',
+      dlv: 'np_branch', pay: 'cod',
       cityRef: '', cityName: '', brRef: '', brName: ''
     };
     const isNP = () => form.dlv.indexOf('np_') === 0;
@@ -1906,8 +1907,7 @@
     }
 
     function payOpts() {
-      const av = PAY.filter(p => (!p.online || payOn) &&
-        (p.for === 'all' || (p.for === 'np' && isNP()) || (p.for === 'pickup' && form.dlv === 'pickup')));
+      const av = PAY.filter(p => p.for === 'all' || (p.for === 'np' && isNP()) || (p.for === 'pickup' && form.dlv === 'pickup'));
       if (!av.some(p => p.id === form.pay)) form.pay = av[0].id;
       $('#pay').innerHTML = av.map(p => `<label class="pay">
         <input type="radio" name="pay" value="${p.id}"${p.id === form.pay ? ' checked' : ''}>
@@ -1926,7 +1926,9 @@
       if (isNP() && !free) notes.push('Доставку рахує Нова Пошта за своїм тарифом — оплачується при отриманні.');
       if (isNP() && free) notes.push('Сума понад ' + money(CFG.freeFrom) + ' — доставку Новою Поштою оплачуємо ми.');
       if (form.pay === 'cod') notes.push('За наложений платіж Нова Пошта бере власну комісію.');
-      if (form.pay === 'online') notes.push('Після оформлення відкриється захищена сторінка оплати LiqPay.');
+      if (form.pay === 'online') notes.push(payOn
+        ? 'Після оформлення відкриється захищена сторінка оплати LiqPay.'
+        : 'Оплата карткою запрацює найближчим часом — поки що оберіть наложений платіж.');
       $('#sNote').textContent = notes.join(' ');
     }
 
@@ -1942,6 +1944,12 @@
         ok = fieldBad(br, br.value.trim().length > 0 ? '' : 'Вкажіть, куди доставити') && ok;
       }
       if (!ok) { const bad = $('.f.bad input'); if (bad) bad.focus(); return; }
+      /* LiqPay ще не підключено — не створюємо замовлення, яке однаково
+         не вийде оплатити, а просимо обрати інший спосіб. */
+      if (form.pay === 'online' && !payOn) {
+        toast('Оплата карткою ще налаштовується — оберіть наложений платіж');
+        return;
+      }
 
       const d = DLV.find(x => x.id === form.dlv), p = PAY.find(x => x.id === form.pay);
 
