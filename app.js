@@ -1662,18 +1662,15 @@
     const cityText = () => fieldText('#fCity', form.cityName);
     const brText = () => fieldText('#fBr', form.brName);
 
-    /* Оплата карткою: питаємо функцію, чи підключено LiqPay. Тестові ключі
-       (sandbox_) показуємо лише тому, хто відкрив кошик з ?paytest=1, —
-       інакше справжній покупець «оплатив» би тестовою карткою. */
-    let payOn = false, payTouched = false;
-    let payTest = false;
-    try {
-      if (new URL(location.href).searchParams.get('paytest') === '1') sessionStorage.setItem('js_paytest', '1');
-      payTest = sessionStorage.getItem('js_paytest') === '1';
-    } catch (e) {}
+    /* Оплата карткою: питаємо функцію, чи підключено LiqPay. Поки стоять
+       тестові ключі (sandbox_), оплату може спробувати кожен, але прямо
+       при способі оплати написано, що гроші не списуються, — щоб ніхто не
+       подумав, що заплатив насправді. Бойові ключі прибирають цей напис самі. */
+    let payOn = false, payTouched = false, paySandbox = false;
     if (window.JS_FN && window.JS_DB && JS_DB.id) {
       fetch(JS_FN + '?payon=' + JS_DB.id).then(r => r.json()).then(r => {
-        payOn = !!(r && r.online && (!r.sandbox || payTest));
+        payOn = !!(r && r.online);
+        paySandbox = !!(r && r.sandbox);
         if (!payOn || !$('#pay')) return;
         if (!payTouched) form.pay = 'online';
         payOpts(); totals();
@@ -1919,7 +1916,9 @@
       if (!av.some(p => p.id === form.pay)) form.pay = av[0].id;
       $('#pay').innerHTML = av.map(p => `<label class="pay">
         <input type="radio" name="pay" value="${p.id}"${p.id === form.pay ? ' checked' : ''}>
-        <span><b>${esc(p.n)}</b><em>${esc(p.d)}</em></span>
+        <span><b>${esc(p.n)}</b><em>${esc(p.online && payOn && paySandbox
+          ? 'Тестовий режим: гроші не списуються. Картка 4242 4242 4242 4242, будь-яка дата й CVV'
+          : p.d)}</em></span>
       </label>`).join('');
       $('#pay').onchange = e => { form.pay = e.target.value; payTouched = true; totals(); };
     }
