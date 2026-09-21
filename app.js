@@ -369,7 +369,10 @@
         </div>
         <div class="ft__legal">
           <p>${esc(CFG.sellerName)} · РНОКПП ${esc(CFG.sellerCode)} · ${esc(CFG.sellerAddress)}</p>
-          <img class="ft__lp" src="img/liqpay.svg" alt="LiqPay" width="86" height="18" onerror="this.remove()">
+          <div class="ft__pay">
+            <img class="ft__lp" src="img/pay/liqpay.svg" alt="LiqPay" width="87" height="18">
+            <img src="img/pay/visa.svg" alt="Visa" width="40" height="24"><img src="img/pay/mastercard.svg" alt="Mastercard" width="40" height="24"><img src="img/pay/apple-pay.svg" alt="Apple Pay" width="40" height="24"><img src="img/pay/google-pay.svg" alt="Google Pay" width="40" height="24">
+          </div>
         </div>
         <div class="ft__bot">
           <span>© ${new Date().getFullYear()} ${esc(CFG.brand)}</span>
@@ -1958,7 +1961,7 @@
       if (!av.some(p => p.id === form.pay)) form.pay = av[0].id;
       $('#pay').innerHTML = av.map(p => `<label class="pay">
         <input type="radio" name="pay" value="${p.id}"${p.id === form.pay ? ' checked' : ''}>
-        <span><b>${esc(p.n)}</b><em>${esc(p.online && payOn && paySandbox
+        <span><b>${esc(p.n)}${p.online ? ' <img class="pay__lp" src="img/pay/liqpay-symbol.svg" alt="LiqPay" width="16" height="16">' : ''}</b><em>${esc(p.online && payOn && paySandbox
           ? 'Тестовий режим: гроші не списуються. Картка 4242 4242 4242 4242, будь-яка дата й CVV'
           : p.d)}</em></span>
       </label>`).join('');
