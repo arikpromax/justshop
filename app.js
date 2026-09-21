@@ -358,13 +358,11 @@
             <li><a href="oferta.html">Публічна оферта</a></li>
             <li><a href="polityka.html">Політика конфіденційності</a></li>
           </ul></div>
-          <div><h4>Звʼязок</h4><ul>
-            <li><a href="${esc(CFG.ig)}" target="_blank" rel="noopener">Instagram</a></li>
-            <li><a href="${esc(CFG.tg)}" target="_blank" rel="noopener">Telegram-канал</a></li>
-            <li><a href="kontakty.html">${esc(CFG.pickup.split(',')[0])} — самовивіз</a></li>
-            <li><a href="tel:+${esc(String(CFG.phone).replace(/\D/g, ''))}">${esc(CFG.phone)}</a></li>
-            <li><a href="mailto:${esc(CFG.email)}">${esc(CFG.email)}</a></li>
-            <li>${esc(CFG.hours)}</li>
+          <div><h4>Звʼязок</h4><ul class="ft__con">
+            <li><a href="tel:+${esc(String(CFG.phone).replace(/\D/g, ''))}"><i>${icon('phone')}</i><span><em>Телефон</em>${esc(CFG.phone)}</span></a></li>
+            <li><a href="mailto:${esc(CFG.email)}"><i>${icon('mail')}</i><span><em>Пошта</em>${esc(CFG.email)}</span></a></li>
+            <li><div><i>${icon('clock')}</i><span><em>Графік</em>${esc(CFG.hours)}</span></div></li>
+            <li><a href="kontakty.html"><i>${icon('pin')}</i><span><em>Самовивіз</em>${esc(CFG.pickup.split(',')[0])}</span></a></li>
           </ul></div>
         </div>
         <div class="ft__legal">

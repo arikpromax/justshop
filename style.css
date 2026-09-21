@@ -219,6 +219,13 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
 .ft h4{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--mut-dk);margin-bottom:13px;font-weight:500}
 .ft li+li{margin-top:8px}
 .ft a:hover{color:var(--acc)}
+/* колонка «Звʼязок»: значок у квадраті, як соцмережі ліворуч, і підпис над даними */
+.ft .ft__con li+li{margin-top:12px}
+.ft__con a,.ft__con div{display:flex;align-items:center;gap:12px}
+.ft__con i{flex:none;width:38px;height:38px;display:grid;place-items:center;border:1px solid var(--line-dk);font-size:16px;color:#fff;transition:.2s}
+.ft__con a:hover i{background:var(--acc);border-color:var(--acc)}
+.ft__con span{display:flex;flex-direction:column;gap:3px;min-width:0;line-height:1.25;overflow-wrap:anywhere}
+.ft__con em{font-style:normal;font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--mut-dk)}
 .ft__soc{display:flex;gap:8px;margin-top:16px}
 .ft__soc a{width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--line-dk);font-size:18px;transition:.2s}
 .ft__soc a:hover{background:var(--acc);border-color:var(--acc);color:#fff}
