@@ -57,7 +57,13 @@
     return out;
   };
 
-  window.JS_DB = { id: id, rpc: rpc };
+  /* Залишки одного товару — для відкритої сторінки товару. Каталог у
+     браузері буває до 10 хвилин старий, а власник міг щойно скасувати
+     замовлення чи довезти розмір. */
+  const stockOf = itemId => get('/stock?site_id=eq.' + id + '&item_id=eq.' + Number(itemId) +
+    '&select=item_id,size,qty,reserved,low_at');
+
+  window.JS_DB = { id: id, rpc: rpc, stockOf: stockOf };
   // Функція бота: вона ж готує оплату карткою й приймає відповідь LiqPay
   window.JS_FN = DB.replace('/rest/v1', '/functions/v1/tg-bot');
 

@@ -1079,6 +1079,19 @@
       return;
     }
     document.title = (p.brand ? p.brand + ' ' : '') + p.name + ' — Just shop';
+    /* Розміри з кешу браузера можуть бути до 10 хвилин старі. Для
+       відкритого товару питаємо базу напряму — і якщо щось змінилось,
+       перемальовуємо сторінку зі справжніми залишками. */
+    if (p.itemId && window.JS_DB && JS_DB.stockOf && window.JS_STOCK_ROWS) {
+      JS_DB.stockOf(p.itemId).then(rows => {
+        if (!Array.isArray(rows)) return;
+        const old = window.JS_STOCK_ROWS.filter(r => r.item_id === p.itemId);
+        const key = list => JSON.stringify(list.map(r => [r.size, r.qty, r.reserved]).sort());
+        if (key(old) === key(rows)) return;
+        window.JS_STOCK_ROWS = window.JS_STOCK_ROWS.filter(r => r.item_id !== p.itemId).concat(rows);
+        if (window.JS_REDRAW) JS_REDRAW();
+      }).catch(() => {});
+    }
     let size = '';
     const gone = outOfStock(p);                 // усе розпродано
     const sizeGone = s => avail(p, s) <= 0;
