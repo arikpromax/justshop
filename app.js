@@ -1653,6 +1653,14 @@
       cityRef: '', cityName: '', brRef: '', brName: ''
     };
     const isNP = () => form.dlv.indexOf('np_') === 0;
+    /* Місто й відділення — то поле (курʼєр), то список (відділення,
+       поштомат). У списку немає .value, тож назву беремо з form. */
+    const fieldText = (sel, keep) => {
+      const el = $(sel);
+      return ((el && el.tagName === 'INPUT') ? el.value : keep || '').trim();
+    };
+    const cityText = () => fieldText('#fCity', form.cityName);
+    const brText = () => fieldText('#fBr', form.brName);
 
     /* Оплата карткою: питаємо функцію, чи підключено LiqPay. Тестові ключі
        (sandbox_) показуємо лише тому, хто відкрив кошик з ?paytest=1, —
@@ -1940,10 +1948,16 @@
       ok = fieldBad(tel, tel.value.replace(/\D/g, '').length >= 11 ? '' : 'Перевірте номер телефону') && ok;
       if (form.dlv !== 'pickup') {
         const city = $('#fCity'), br = $('#fBr');
-        ok = fieldBad(city, city.value.trim().length > 1 ? '' : 'Вкажіть місто') && ok;
-        ok = fieldBad(br, br.value.trim().length > 0 ? '' : 'Вкажіть, куди доставити') && ok;
+        ok = fieldBad(city, cityText().length > 1 ? '' : 'Вкажіть місто') && ok;
+        ok = fieldBad(br, brText().length > 0 ? '' : 'Вкажіть, куди доставити') && ok;
       }
-      if (!ok) { const bad = $('.f.bad input'); if (bad) bad.focus(); return; }
+      if (!ok) {
+        const bad = $('.f.bad');
+        const input = bad && $('input:not([hidden])', bad);
+        if (input && input.offsetParent) input.focus();
+        else if (bad) bad.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return;
+      }
       /* LiqPay ще не підключено — не створюємо замовлення, яке однаково
          не вийде оплатити, а просимо обрати інший спосіб. */
       if (form.pay === 'online' && !payOn) {
@@ -1976,8 +1990,8 @@
             p_customer: {
               name: $('#fName').value.trim(),
               phone: $('#fTel').value.trim(),
-              city: form.dlv === 'pickup' ? '' : $('#fCity').value.trim(),
-              branch: form.dlv === 'pickup' ? '' : $('#fBr').value.trim(),
+              city: form.dlv === 'pickup' ? '' : cityText(),
+              branch: form.dlv === 'pickup' ? '' : brText(),
               delivery: d.n,
               pay: p.n,
               comment: $('#fNote').value.trim(),
@@ -2004,7 +2018,7 @@
         cart.map(l => { const it = byId(l.id); return '• ' + it.brand + ' ' + it.name + ' / ' + l.size + ' × ' + l.qty + ' — ' + Math.round(it.price * l.qty) + ' грн'; })
       ).concat([
         '', 'Сума: ' + Math.round(cartSum()) + ' грн',
-        'Доставка: ' + d.n + (form.dlv === 'pickup' ? '' : ' — ' + $('#fCity').value.trim() + ', ' + $('#fBr').value.trim()),
+        'Доставка: ' + d.n + (form.dlv === 'pickup' ? '' : ' — ' + cityText() + ', ' + brText()),
         'Оплата: ' + p.n,
         'Отримувач: ' + $('#fName').value.trim() + ', ' + $('#fTel').value.trim(),
         $('#fNote').value.trim() ? 'Коментар: ' + $('#fNote').value.trim() : ''
@@ -2031,9 +2045,9 @@
           method: form.dlv,
           name: d.n,
           service: NP_SERVICE[form.dlv] || '',
-          city: form.dlv === 'pickup' ? '' : $('#fCity').value.trim(),
+          city: form.dlv === 'pickup' ? '' : cityText(),
           cityRef: form.cityRef || '',
-          branch: form.dlv === 'pickup' ? '' : $('#fBr').value.trim(),
+          branch: form.dlv === 'pickup' ? '' : brText(),
           branchRef: form.brRef || ''
         },
         payment: { id: form.pay, name: p.n, cod: form.pay === 'cod' },
