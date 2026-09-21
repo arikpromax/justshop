@@ -1360,7 +1360,13 @@
       if (o.onOpen) o.onOpen(api);
     };
 
-    btn.addEventListener('click', () => (open ? shut() : show()));
+    btn.addEventListener('click', () => {
+      if (open) { shut(); return; }
+      /* Поле може бути ще не готове — наприклад, відділення без міста.
+         Тоді не відкриваємо порожнечу, а кажемо, чого бракує. */
+      if (o.guard && !o.guard()) return;
+      show();
+    });
     if (inp) inp.addEventListener('input', () => paint(inp.value));
     list.addEventListener('click', e => {
       const b = e.target.closest('[data-v]');
@@ -1717,6 +1723,7 @@
             form.cityRef = it.v; form.cityName = it.t;
             form.brRef = ''; form.brName = '';
             fieldBad(city, '');
+            city.classList.remove('dd--ask');
             if (brPick) {
               brPick.items = [];
               brPick.value = '';
@@ -1735,6 +1742,17 @@
           items: [], value: form.brRef, search: 'Номер або вулиця',
           placeholder: form.cityRef ? brWord : 'Спершу оберіть місто',
           empty: 'Тут такого немає',
+          guard: () => {
+            if (form.cityRef) return true;
+            toast('Спершу оберіть місто');
+            if (city.classList) {
+              city.classList.remove('dd--ask');
+              void city.offsetWidth;             // щоб підказка блимнула і вдруге
+              city.classList.add('dd--ask');
+              city.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+            return false;
+          },
           onOpen: api => {
             if (api.items.length) return;
             if (!form.cityRef) { api.busy('Спершу оберіть місто'); return; }
@@ -1979,7 +1997,12 @@
       p.pics = Array.isArray(p.pics) ? p.pics.filter(Boolean) : [];
       if (!p.img && p.pics.length) { p.img = p.pics[0]; p.pics = p.pics.slice(1); }
     });
-    cart = cart.filter(l => byId(l.id));
+    /* Кошик звіряємо з каталогом лише тоді, коли каталог справді є. Поки
+       він їде, список товарів порожній, і звірка викинула б усе, що людина
+       поклала, — оформлення показувало порожнечу. Тому щоразу беремо кошик
+       наново зі сховища: там він цілий. */
+    cart = readCart();
+    if (PRODUCTS.length) cart = cart.filter(l => byId(l.id));
   }
 
   function boot() {
@@ -2008,8 +2031,11 @@
        приїде — малюємо ще раз, інакше сторінка так і лишиться порожньою. */
     window.JS_REDRAW = () => { release(); prep(); paintCount(); heads(); chrome(); draw(); };
 
-    // сторінку товару відкривають і з чужого посилання — там питати недоречно
-    if (!aud && page !== 'tovar') askAud(draw); else draw();
+    /* Питаємо «що показувати» лише там, де людина розглядає вітрину. На
+       товар приходять за посиланням з Instagram, а з товару — у кошик; і
+       ставити це питання перед оплатою означає заважати купити. */
+    const browse = page === 'index' || page === 'katalog';
+    if (!aud && browse) askAud(draw); else draw();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
