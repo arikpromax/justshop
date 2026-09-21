@@ -1851,6 +1851,7 @@
          списує товар зі складу й отримує свій номер. Бази немає або вона
          мовчить — сайт працює як раніше, просто без обліку. */
       let no = 'JS' + String(Date.now()).slice(-6);
+      let saved = false;                 // замовлення в базі — його вже побачив бот
       const db = window.JS_DB;
       const dbLines = orderLines();
       if (db && dbLines.length) {
@@ -1872,7 +1873,13 @@
               branch: form.dlv === 'pickup' ? '' : $('#fBr').value.trim(),
               delivery: d.n,
               pay: p.n,
-              comment: $('#fNote').value.trim()
+              comment: $('#fNote').value.trim(),
+              /* Для накладної: внутрішні коди Нової Пошти й самі способи,
+                 а не лише їхні назви — з назви ТТН не створиш. */
+              dlv: form.dlv,
+              payId: form.pay,
+              cityRef: form.dlv === 'pickup' ? '' : (form.cityRef || ''),
+              branchRef: form.dlv === 'pickup' ? '' : (form.brRef || '')
             },
             p_total: Math.round(cartSum())
           });
@@ -1884,7 +1891,7 @@
           toast('Щось уже забрали — перевірте кошик');
           return;
         }
-        if (res && res.ref) no = res.ref;
+        if (res && res.ref) { no = res.ref; saved = true; }
       }
       const text = ['ЗАМОВЛЕННЯ ' + no, ''].concat(
         cart.map(l => { const it = byId(l.id); return '• ' + it.brand + ' ' + it.name + ' / ' + l.size + ' × ' + l.qty + ' — ' + Math.round(it.price * l.qty) + ' грн'; })
@@ -1931,18 +1938,28 @@
       });
       cart = []; writeCart(cart);
 
+      /* Замовлення в базі — магазин уже отримав його в Telegram, і покупцеві
+         нічого пересилати не треба. Лише коли база не відповіла, лишається
+         старий шлях: скопіювати текст і надіслати самому. */
       $('#co').outerHTML = `<div class="done" id="done">
         <div class="done__ok">${icon('check')}</div>
         <h1 class="dsp h-md">Замовлення прийнято</h1>
+        ${saved ? `
+        <p class="lead" style="max-width:46ch;margin:0 auto">Замовлення вже в нас. Незабаром звʼяжемося з вами за номером ${esc($('#fTel').value.trim())}, щоб підтвердити наявність і відправку.</p>
+        <p class="done__code">Номер ${no}</p>
+        <div class="done__cta">
+          <a class="btn" href="katalog.html">Повернутися в каталог ${icon('arrow')}</a>
+        </div>` : `
         <p class="lead" style="max-width:46ch;margin:0 auto">Текст замовлення вже у вашому буфері обміну. Надішліть його нам у Telegram або Instagram — підтвердимо наявність і надішлемо реквізити.</p>
         <p class="done__code">Номер ${no}</p>
         <div class="done__cta">
           <a class="btn" href="${esc(CFG.tg)}" target="_blank" rel="noopener">Написати в Telegram ${icon('arrow')}</a>
           <a class="btn btn--gh" href="${esc(CFG.ig)}" target="_blank" rel="noopener">Instagram</a>
         </div>
-        <p class="fhint" style="margin-top:22px">Не скопіювалося? <button type="button" class="line__x" id="again">Скопіювати ще раз</button></p>
+        <p class="fhint" style="margin-top:22px">Не скопіювалося? <button type="button" class="line__x" id="again">Скопіювати ще раз</button></p>`}
       </div>`;
-      $('#again').addEventListener('click', () => { send(text, 'order'); toast('Скопійовано'); });
+      const again = $('#again');
+      if (again) again.addEventListener('click', () => { send(text, 'order'); toast('Скопійовано'); });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
