@@ -2051,6 +2051,11 @@
           return;
         }
         if (res && res.ref) { no = res.ref; saved = true; oid = res.id; dropCache(); }
+        /* Ціну рахує база за карткою товару. Якщо її змінили, поки людина
+           оформлювала, кажемо чесно, скільки вийшло насправді. */
+        if (saved && res.total != null && Math.round(Number(res.total)) !== Math.round(cartSum())) {
+          toast('Ціну оновлено — до сплати ' + money(Number(res.total)));
+        }
       }
       const text = ['ЗАМОВЛЕННЯ ' + no, ''].concat(
         cart.map(l => { const it = byId(l.id); return '• ' + it.brand + ' ' + it.name + ' / ' + l.size + ' × ' + l.qty + ' — ' + Math.round(it.price * l.qty) + ' грн'; })
