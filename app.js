@@ -420,6 +420,35 @@
     });
   }
 
+  /* Документи пишуть в адмінці простим текстом: рядок із ## — заголовок,
+     рядок з «- » — пункт списку, **жирний**, [підпис](посилання).
+     Замість {{sellerName}} і сусідів підставляються реквізити продавця. */
+  function docText(src) {
+    const line = s => esc(s)
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    const out = [];
+    let list = [];
+    const flush = () => { if (list.length) { out.push('<ul>' + list.join('') + '</ul>'); list = []; } };
+    String(src).split(/\r?\n/).forEach(raw => {
+      const s = raw.trim();
+      if (!s) { flush(); return; }
+      if (s.indexOf('## ') === 0) { flush(); out.push('<h2>' + line(s.slice(3)) + '</h2>'); return; }
+      if (s.indexOf('- ') === 0) { list.push('<li>' + line(s.slice(2)) + '</li>'); return; }
+      flush();
+      out.push('<p>' + line(s) + '</p>');
+    });
+    flush();
+    return out.join('');
+  }
+
+  function doc(key) {
+    const box = $('#doc'), src = HEAD[key];
+    if (!box || !src) return;   // в адмінці порожньо — лишаємо текст зі сторінки
+    box.innerHTML = docText(String(src).replace(/\{\{(\w+)\}\}/g,
+      (m, k) => (CFG[k] == null || CFG[k] === '' ? m : String(CFG[k]))));
+  }
+
   /* ---------- спільна модалка ---------- */
   let mdEsc = null;
   function closeModal() {
@@ -1548,7 +1577,11 @@
     return fetch(JS_FN + '?pay=' + id + '&back=' + encodeURIComponent(back), { method: 'POST' })
       .then(r => r.json())
       .then(r => {
-        if (!r || !r.data || !r.signature) throw new Error((r && r.error) || 'pay');
+        if (!r || r.ok === false) throw new Error((r && r.error) || 'pay');
+        /* MonoPay дає готове посилання на свою сторінку оплати,
+           LiqPay — форму, яку треба відправити. */
+        if (r.redirect) { location.href = r.redirect; return; }
+        if (!r.data || !r.signature) throw new Error('pay');
         const f = document.createElement('form');
         f.method = 'POST'; f.action = r.url; f.acceptCharset = 'utf-8'; f.hidden = true;
         [['data', r.data], ['signature', r.signature]].forEach(([k, v]) => {
@@ -2290,6 +2323,8 @@
         else if (page === 'koshyk') checkout();
         else if (page === 'dostavka') delivery();
         else if (page === 'posylka') parcel();
+        else if (page === 'oferta') doc('oferta_text');
+        else if (page === 'polityka') doc('policy_text');
         else if (page === 'kontakty') contacts();
       } catch (err) {
         console.error(err);
