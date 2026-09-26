@@ -311,6 +311,12 @@
         }
       });
       $('#burger').addEventListener('click', e => {
+        /* Натиск не пускаємо далі сторінці: нижче вона закриває меню, коли
+           натиснули повз нього, а ми тут-таки міняємо іконку — і той елемент,
+           на який натиснули, зникає. Сторінка вважала його чужим і зачиняла
+           меню одразу після відкриття: на телефоні це виглядало як «кнопка
+           спрацьовує не з першого разу». */
+        e.stopPropagation();
         const on = $('#nav').classList.toggle('on');
         e.currentTarget.setAttribute('aria-expanded', String(on));
         e.currentTarget.innerHTML = icon(on ? 'close' : 'menu');
