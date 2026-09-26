@@ -370,7 +370,6 @@
             <a href="polityka.html">Політика конфіденційності</a>
           </nav>
           <div class="ft__pay">
-            <img class="ft__lp" src="img/pay/liqpay.svg" alt="LiqPay" width="87" height="18">
             <img src="img/pay/visa.svg" alt="Visa" width="40" height="24"><img src="img/pay/mastercard.svg" alt="Mastercard" width="40" height="24"><img src="img/pay/apple-pay.svg" alt="Apple Pay" width="40" height="24"><img src="img/pay/google-pay.svg" alt="Google Pay" width="40" height="24">
           </div>
         </div>
@@ -1564,17 +1563,17 @@
     { id: 'pickup', n: 'Самовивіз, Київ', d: 'Адресу надсилаємо після підтвердження', c: '0 грн' }
   ];
   /* «Карткою на сайті» видно завжди, але приймає оплату лише тоді, коли
-     в Supabase лежать ключі LiqPay (див. payOn у checkout). Оплати за
+     в адмінці вписано токен monobank (див. payOn у checkout). Оплати за
      реквізитами на сайті немає: реквізити лишились тільки для передоплати
      речей під запит в особистих. */
   const PAY = [
-    { id: 'online', n: 'Карткою на сайті', d: 'Visa, Mastercard, Apple Pay чи Google Pay — через LiqPay', for: 'all', online: true },
+    { id: 'online', n: 'Карткою на сайті', d: 'Visa, Mastercard, Apple Pay чи Google Pay — через monobank', for: 'all', online: true },
     { id: 'cod', n: 'Накладений платіж', d: 'Оплата при отриманні, комісію бере НП', for: 'np' },
     { id: 'cash', n: 'Готівкою при самовивозі', d: 'Розрахунок на місці', for: 'pickup' }
   ];
 
   /* ===========================================================
-     ОПЛАТА КАРТКОЮ (LiqPay)
+     ОПЛАТА КАРТКОЮ (monobank)
      =========================================================== */
   /* Підпис платежу робить функція в Supabase — там лежить приватний ключ.
      Сюди приходять лише готові data й signature, а суму функція бере з бази. */
@@ -1584,8 +1583,8 @@
       .then(r => r.json())
       .then(r => {
         if (!r || r.ok === false) throw new Error((r && r.error) || 'pay');
-        /* MonoPay дає готове посилання на свою сторінку оплати,
-           LiqPay — форму, яку треба відправити. */
+        /* monobank дає готове посилання на свою сторінку оплати;
+           форма лишилась для інших банків, якщо колись знадобляться. */
         if (r.redirect) { location.href = r.redirect; return; }
         if (!r.data || !r.signature) throw new Error('pay');
         const f = document.createElement('form');
@@ -1600,7 +1599,7 @@
       });
   }
 
-  /* Екран після оплати. LiqPay повертає покупця сюди і коли вийшло, і коли
+  /* Екран після оплати. Банк повертає покупця сюди і коли вийшло, і коли
      ні, тож не віримо самому поверненню: питаємо базу, що з оплатою. */
   function payScreen(id, ref, state) {
     const wrap = $('#co') || $('#done');
@@ -1613,7 +1612,7 @@
     const lead = ok ? 'Замовлення вже в роботі. Незабаром звʼяжемося з вами, щоб підтвердити відправку.'
       : gone ? 'Оплата не надійшла за 10 хвилин, тож товар повернувся в продаж. Оформіть замовлення ще раз.'
       : wait ? 'Це займає кілька секунд.'
-      : broken ? 'Замовлення збережене, але сторінка LiqPay не відкрилась. Спробуйте ще раз — якщо не оплатити протягом 10 хвилин, замовлення скасується само.'
+      : broken ? 'Замовлення збережене, але сторінка оплати не відкрилась. Спробуйте ще раз — якщо не оплатити протягом 10 хвилин, замовлення скасується само.'
       : 'Гроші не списалися. Спробуйте ще раз — якщо не оплатити протягом 10 хвилин, замовлення скасується само.';
     wrap.outerHTML = `<div class="done" id="done">
       ${ok ? `<div class="done__ok">${icon('check')}</div>` : ''}
@@ -1632,7 +1631,7 @@
     });
   }
 
-  // Повернення з LiqPay: koshyk.html?paid=<номер>&o=<id>. Відповідь банку
+  // Повернення з банку: koshyk.html?paid=<номер>&o=<id>. Відповідь банку
   // доходить до нас за кілька секунд, тому питаємо кілька разів.
   function payReturn() {
     const q = new URL(location.href).searchParams;
@@ -1749,10 +1748,9 @@
     const cityText = () => fieldText('#fCity', form.cityName);
     const brText = () => fieldText('#fBr', form.brName);
 
-    /* Оплата карткою: питаємо функцію, чи підключено LiqPay. Поки стоять
-       тестові ключі (sandbox_), оплату може спробувати кожен, але прямо
-       при способі оплати написано, що гроші не списуються, — щоб ніхто не
-       подумав, що заплатив насправді. Бойові ключі прибирають цей напис самі. */
+    /* Оплата карткою: питаємо функцію, чи підключено банк. Якщо це тестові
+       ключі, прямо при способі оплати написано, що гроші не списуються, —
+       щоб ніхто не подумав, що заплатив насправді. */
     let payOn = false, payTouched = false, paySandbox = false;
     if (window.JS_FN && window.JS_DB && JS_DB.id) {
       fetch(JS_FN + '?payon=' + JS_DB.id).then(r => r.json()).then(r => {
@@ -2058,8 +2056,8 @@
       if (!av.some(p => p.id === form.pay)) form.pay = av[0].id;
       $('#pay').innerHTML = av.map(p => `<label class="pay">
         <input type="radio" name="pay" value="${p.id}"${p.id === form.pay ? ' checked' : ''}>
-        <span><b>${esc(p.n)}${p.online ? ' <img class="pay__lp" src="img/pay/liqpay-symbol.svg" alt="LiqPay" width="16" height="16">' : ''}</b><em>${esc(p.online && payOn && paySandbox
-          ? 'Тестовий режим: гроші не списуються. Картка 4242 4242 4242 4242, будь-яка дата й CVV'
+        <span><b>${esc(p.n)}</b><em>${esc(p.online && payOn && paySandbox
+          ? 'Перевірка оплати: гроші не списуються — це тестовий режим'
           : p.d)}</em></span>
       </label>`).join('');
       $('#pay').onchange = e => { form.pay = e.target.value; payTouched = true; totals(); };
@@ -2076,7 +2074,7 @@
       if (isNP() && free) notes.push('Сума понад ' + money(CFG.freeFrom) + ' — доставку Новою Поштою оплачуємо ми.');
       if (form.pay === 'cod') notes.push('За накладений платіж Нова Пошта бере власну комісію.');
       if (form.pay === 'online') notes.push(payOn
-        ? 'Після оформлення відкриється захищена сторінка оплати LiqPay.'
+        ? 'Після оформлення відкриється захищена сторінка оплати monobank.'
         : 'Оплата карткою запрацює найближчим часом — поки що оберіть накладений платіж.');
       $('#sNote').textContent = notes.join(' ');
     }
@@ -2099,7 +2097,7 @@
         else if (bad) bad.scrollIntoView({ block: 'center', behavior: 'smooth' });
         return;
       }
-      /* Без згоди з офертою договір не укладається — так вимагає й LiqPay */
+      /* Без згоди з офертою договір не укладається — цього вимагає й банк */
       if (!form.agree) {
         const box = $('#agreeBox');
         box.classList.remove('agree--ask');
@@ -2108,8 +2106,8 @@
         toast('Підтвердіть згоду з умовами оферти');
         return;
       }
-      /* LiqPay ще не підключено — не створюємо замовлення, яке однаково
-         не вийде оплатити, а просимо обрати інший спосіб. */
+      /* Оплату карткою ще не підключено — не створюємо замовлення, яке
+         однаково не вийде оплатити, а просимо обрати інший спосіб. */
       if (form.pay === 'online' && !payOn) {
         toast('Оплата карткою ще налаштовується — оберіть накладений платіж');
         return;
@@ -2214,7 +2212,7 @@
       });
       cart = []; writeCart(cart);
 
-      /* Карткою: одразу на сторінку LiqPay. Якщо вона не відкрилась —
+      /* Карткою: одразу на сторінку оплати. Якщо вона не відкрилась —
          показуємо екран, з якого можна спробувати ще раз. */
       if (saved && oid && form.pay === 'online') {
         const btn = $('button[form=ord]');

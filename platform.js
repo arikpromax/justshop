@@ -64,7 +64,7 @@
     '&select=item_id,size,qty,reserved,low_at');
 
   window.JS_DB = { id: id, rpc: rpc, stockOf: stockOf };
-  // Функція бота: вона ж готує оплату карткою й приймає відповідь LiqPay
+  // Функція бота: вона ж готує оплату карткою й приймає відповідь банку
   window.JS_FN = DB.replace('/rest/v1', '/functions/v1/tg-bot');
 
   /* ---------- перетворення рядків бази у формат data.js ---------- */
