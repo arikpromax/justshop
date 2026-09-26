@@ -1113,7 +1113,7 @@
      =========================================================== */
   function product() {
     const id = new URL(location.href).searchParams.get('id');
-    const p = byId(id);
+    const p = byId(id) || GONE.filter(x => String(x.id) === String(id))[0];
     const root = $('#pdp');
     if (!p) {
       root.innerHTML = `<div class="empty"><p class="dsp h-md">Такої позиції немає</p><p>Можливо, вона вже поїхала до власника. Подивіться каталог або замовте пошук.</p><a class="btn" href="katalog.html">У каталог ${icon('arrow')}</a></div>`;
@@ -2297,6 +2297,9 @@
 
   /* ---------- запуск ---------- */
   /* Довести щойно отримані товари до вигляду, з яким працює сайт */
+  // Товари, прибрані з каталогу (продані чи без фото) — лише для прямих посилань
+  const GONE = [];
+
   function prep() {
     PRODUCTS.forEach(p => { p.sizes = tidySizes(p.sizes); p.brand = tidyBrand(p.brand); });
     stockIn(window.JS_STOCK_ROWS);
@@ -2313,7 +2316,18 @@
     // Без фото теж не показуємо: картка з порожнім квадратом продає гірше, ніж її відсутність.
     // Нові товари з програми магазину зʼявляються, щойно для них є фото.
     const live = PRODUCTS.filter(p => p.stock !== false && !outOfStock(p) && !!p.img);
-    if (live.length !== PRODUCTS.length) PRODUCTS.splice(0, PRODUCTS.length, ...live);
+    /* Прибрані з каталогу лишаємо осторонь: за прямим посиланням —
+       з повідомлення в Telegram, із закладки, з Instagram — сторінка
+       товару має відкритись і чесно сказати «немає», а не «такої
+       позиції немає». У каталозі, пошуку й підбірках їх однаково немає. */
+    const off = PRODUCTS.filter(p => live.indexOf(p) < 0);
+    if (off.length) PRODUCTS.splice(0, PRODUCTS.length, ...live);
+    /* Список поповнюємо, а не перезаписуємо: наступного разу сюди зайдуть
+       уже відфільтровані товари, прибирати буде нічого — і запис пропав би. */
+    off.forEach(p => {
+      const i = GONE.findIndex(x => x.id === p.id);
+      if (i < 0) GONE.push(p); else GONE[i] = p;
+    });
     /* Кошик звіряємо з каталогом лише тоді, коли каталог справді є. Поки
        він їде, список товарів порожній, і звірка викинула б усе, що людина
        поклала, — оформлення показувало порожнечу. Тому щоразу беремо кошик
