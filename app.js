@@ -285,12 +285,14 @@
         <a class="logo" href="index.html">${CFG.logo
           ? `<img src="${esc(CFG.logo)}" alt="${esc(CFG.brand)}" onerror="this.parentNode.innerHTML='Just<i></i>Shop'">`
           : 'Just<i></i>Shop'}</a>
+        <a class="trkbtn" href="posylka.html"${page === 'posylka' ? ' aria-current="page"' : ''}>${icon('box')}<span>Відстежити посилку</span></a>
         <div class="aud" role="group" aria-label="Розділ каталогу">
           ${AUD.map(([k, n]) => `<button type="button" data-aud="${k}" aria-pressed="${aud === k}">${n}</button>`).join('')}
         </div>
         <nav class="nav" id="nav">
           <button class="nav__x iconbtn" type="button" id="navX" aria-label="Закрити меню">${icon('close')}</button>
           ${nav.map(([u, n]) => `<a href="${u}"${page && u.indexOf(page) === 0 ? ' aria-current="page"' : ''}>${n}</a>`).join('')}
+          <a class="nav__trk" href="posylka.html">Відстежити посилку</a>
         </nav>
         <div class="hdr__act">
           <button class="iconbtn" data-search aria-label="Пошук по каталогу">${icon('search')}</button>
@@ -353,7 +355,7 @@
           <div><h4>Покупцям</h4><ul>
             <li><a href="dostavka.html">Доставка й оплата</a></li>
             <li><a href="dostavka.html#povernennia">Обмін і повернення</a></li>
-            <li><a href="dostavka.html#trek">Відстежити посилку</a></li>
+            <li><a href="posylka.html">Відстежити посилку</a></li>
             <li><a href="kontakty.html">Контакти</a></li>
           </ul></div>
           <div><h4>Служба підтримки</h4><ul class="ft__con">
@@ -1410,9 +1412,11 @@
     return api;
   }
 
-  /* Повний перелік міст Нової Пошти. Шість із половиною тисяч рядків —
-     тягнемо раз і тримаємо тиждень у браузері, далі пошук іде без мережі. */
-  const CITY_BOX = 'js_np_cities';
+  /* Повний довідник Нової Пошти: одинадцять тисяч міст, селищ і сіл.
+     Раніше бралися лише перші сім тисяч, і все, що за літерою «С»,
+     не знаходилось. Тягнемо все раз і тримаємо тиждень у браузері,
+     далі пошук і відбір за областю йдуть без мережі. */
+  const CITY_BOX = 'js_np_places';
   let cityJob = null;
   function npCities() {
     if (cityJob) return cityJob;
@@ -1425,9 +1429,14 @@
     } catch (e) {}
     cityJob = (async () => {
       const out = [];
-      for (let page = 1; page <= 14; page++) {
+      for (let page = 1; page <= 40; page++) {
         const d = await npCall('Address', 'getCities', { Limit: '500', Page: String(page) });
-        d.forEach(c => out.push({ v: c.Ref, t: c.Description, s: c.AreaDescription ? c.AreaDescription + ' обл.' : '' }));
+        d.forEach(c => out.push({
+          v: c.Ref, t: c.Description,
+          // у самій назві вже є район і область, тож підпис додаємо лише коли його немає
+          s: c.Description.includes('(') ? '' : (c.AreaDescription ? c.AreaDescription + ' обл.' : ''),
+          a: c.AreaDescription || '',
+        }));
         if (d.length < 500) break;
       }
       try { localStorage.setItem(CITY_BOX, JSON.stringify({ at: Date.now(), list: out })); } catch (e) {}
@@ -1436,6 +1445,11 @@
     cityJob.catch(() => { cityJob = null; });
     return cityJob;
   }
+
+  /* Області беремо з того самого довідника — окремий запит не потрібен */
+  const areasOf = list => Array.from(new Set(list.map(c => c.a).filter(Boolean)))
+    .sort((x, y) => x.localeCompare(y, 'uk'))
+    .map(x => ({ v: x, t: x + ' область' }));
 
   /* випадний список під полем */
   function autocomplete(input, opts) {
@@ -1671,7 +1685,7 @@
 
     const form = {
       dlv: 'np_branch', pay: 'cod', agree: false,
-      cityRef: '', cityName: '', brRef: '', brName: ''
+      area: '', cityRef: '', cityName: '', brRef: '', brName: ''
     };
     const isNP = () => form.dlv.indexOf('np_') === 0;
     /* Місто й відділення — то поле (курʼєр), то список (відділення,
@@ -1811,7 +1825,8 @@
       }
       const label = form.dlv === 'np_postomat' ? 'Поштомат' : form.dlv === 'np_courier' ? 'Адреса доставки' : 'Відділення';
       box.innerHTML = `
-        <div class="f"><label>Місто</label>${form.dlv === 'np_courier'
+        ${isBranch() ? '<div class="f"><label>Область</label><div id="fArea"></div><p class="fmsg"></p></div>' : ''}
+        <div class="f"><label>${isBranch() ? 'Місто, селище або село' : 'Місто'}</label>${form.dlv === 'np_courier'
             ? '<input id="fCity" autocomplete="off" placeholder="Почніть вводити назву">'
             : '<div id="fCity"></div>'}<p class="fmsg"></p></div>
         <div class="f"><label>${label}</label>${isBranch()
@@ -1841,15 +1856,50 @@
 
       /* Місто й відділення — списками, як і спосіб доставки. Весь перелік
          Нової Пошти вантажимо раз, далі пошук іде без мережі. */
-      let brPick = null;
-      if (city.tagName !== 'INPUT') {
-        const cityPick = dropdown(city, {
-          items: [], value: form.cityRef, search: 'Знайти місто',
-          placeholder: 'Оберіть місто', empty: 'Такого міста немає',
+      let brPick = null, cityPick = null;
+      const area = $('#fArea');
+      /* Спершу область: після неї в списку міст лишається кількасот рядків
+         замість одинадцяти тисяч, і однойменні села не плутаються. */
+      const inArea = list => (form.area ? list.filter(c => c.a === form.area) : list);
+      if (area) {
+        const areaPick = dropdown(area, {
+          items: [], value: form.area, search: 'Знайти область',
+          placeholder: 'Оберіть область', empty: 'Такої області немає',
           onOpen: api => {
             if (api.items.length) return;
-            api.busy('Завантажуємо перелік міст…');
-            npCities().then(list => { api.items = list; })
+            api.busy('Завантажуємо перелік…');
+            npCities().then(list => { api.items = areasOf(list); })
+              .catch(() => { api.busy('Нова Пошта не відповідає'); setHint(); });
+          },
+          onPick: it => {
+            form.area = it.v;
+            form.cityRef = ''; form.cityName = ''; form.brRef = ''; form.brName = '';
+            fieldBad(area, '');
+            area.classList.remove('dd--ask');
+            if (cityPick) { cityPick.items = []; cityPick.value = ''; cityPick.placeholder = 'Оберіть населений пункт'; }
+            if (brPick) { brPick.items = []; brPick.value = ''; brPick.placeholder = 'Спершу оберіть місто'; }
+          },
+        });
+        npCities().then(list => { areaPick.items = areasOf(list); areaPick.value = form.area; }).catch(() => {});
+      }
+      if (city.tagName !== 'INPUT') {
+        cityPick = dropdown(city, {
+          items: [], value: form.cityRef, search: 'Знайти населений пункт',
+          placeholder: area && !form.area ? 'Спершу оберіть область' : 'Оберіть населений пункт',
+          empty: 'Тут такого немає',
+          guard: () => {
+            if (!area || form.area) return true;
+            toast('Спершу оберіть область');
+            area.classList.remove('dd--ask');
+            void area.offsetWidth;
+            area.classList.add('dd--ask');
+            area.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            return false;
+          },
+          onOpen: api => {
+            if (api.items.length) return;
+            api.busy('Завантажуємо перелік…');
+            npCities().then(list => { api.items = inArea(list); })
               .catch(() => { api.busy('Нова Пошта не відповідає'); setHint(); });
           },
           onPick: it => {
@@ -1864,7 +1914,10 @@
             }
           },
         });
-        npCities().then(list => { cityPick.items = list; cityPick.value = form.cityRef; }).catch(() => {});
+        npCities().then(list => {
+          if (!area || form.area) cityPick.items = inArea(list);
+          cityPick.value = form.cityRef;
+        }).catch(() => {});
       }
 
       if (br.tagName !== 'INPUT') {
@@ -2146,14 +2199,17 @@
     blocks('#conBlocks', CONTACTS);
   }
 
-  function tracking() {
+  function delivery() {
     blocks('#dlvBlocks', DELIVERY);
     blocks('#payBlocks', PAYMENT);
     blocks('#retBlocks', RETURNS);
     /* таблиця розмірів прямо на сторінці */
     const rz = $('#szGuide');
     if (rz) sizeUI(rz, 'top');
+  }
 
+  /* Відстеження посилки — окрема сторінка, кнопка на неї є в шапці */
+  function parcel() {
     const btn = $('#trkGo'), inp = $('#trkNo'), out = $('#trkOut');
     if (!btn) return;
     btn.addEventListener('click', () => {
@@ -2219,7 +2275,8 @@
         else if (page === 'katalog') shop('#shop');
         else if (page === 'tovar') product();
         else if (page === 'koshyk') checkout();
-        else if (page === 'dostavka') tracking();
+        else if (page === 'dostavka') delivery();
+        else if (page === 'posylka') parcel();
         else if (page === 'kontakty') contacts();
       } catch (err) {
         console.error(err);

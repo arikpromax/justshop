@@ -210,6 +210,22 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
 .faq p{padding:0 0 24px;max-width:78ch;color:var(--mut);line-height:1.6}
 
 /* ---------- підвал ---------- */
+/* у меню телефона той самий пункт, бо кнопку там ховаємо */
+.nav__trk{display:none}
+@media (max-width:640px){.nav__trk{display:block}}
+
+/* «Відстежити посилку» — окрема кнопка в шапці, ліворуч біля перемикача */
+.trkbtn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;margin-left:clamp(10px,2vw,22px);
+  border:1px solid var(--line);border-radius:var(--r);font-size:12.5px;white-space:nowrap;transition:.18s}
+.trkbtn .ic{font-size:16px;color:var(--mut)}
+.trkbtn:hover{border-color:var(--ink)}
+.trkbtn:hover .ic{color:var(--acc)}
+.trkbtn[aria-current=page]{border-color:var(--ink)}
+.hdr--dark .trkbtn{border-color:var(--line-dk);color:#fff}
+.hdr--dark .trkbtn:hover{border-color:#fff}
+@media (max-width:1100px){.trkbtn span{display:none}.trkbtn{padding:0 10px}}
+@media (max-width:640px){.trkbtn{display:none}}
+
 .ft{background:var(--ink);color:#fff;padding-top:clamp(44px,6vw,72px)}
 .ft__brand{display:flex;align-items:center;gap:clamp(13px,1.8vw,24px);padding-bottom:clamp(22px,3.4vw,40px)}
 .ft__logo{height:clamp(62px,8vw,100px);width:auto}

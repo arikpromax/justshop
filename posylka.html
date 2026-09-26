@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Відстежити посилку — Just shop</title>
+<meta name="description" content="Введіть номер накладної Нової Пошти й подивіться, де ваша посилка, прямо на сайті Just shop.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,500..900&family=Inter+Tight:wght@400..600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=20260926a">
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/favicon.png">
+</head>
+<body data-page="posylka">
+
+<div class="tick" id="tick"></div>
+<header id="hdr"></header>
+
+<main class="page">
+  <div class="wrap">
+    <div class="page__h">
+      <p class="mono" style="color:var(--mut)">Нова Пошта</p>
+      <h1 class="dsp h-lg" style="margin-top:10px">Відстежити<br>посилку</h1>
+      <p class="lead" style="margin-top:16px;max-width:48ch" data-txt="trk_lead">Введіть номер накладної — покажемо статус прямо тут, без переходу на сайт перевізника.</p>
+    </div>
+
+    <section id="trek">
+      <div class="trk">
+        <input id="trkNo" inputmode="numeric" placeholder="59000 000 000 000" aria-label="Номер накладної">
+        <button class="btn" type="button" id="trkGo">Перевірити</button>
+      </div>
+      <p class="trkres" id="trkOut"></p>
+    </section>
+
+    <div class="cols2" style="margin-top:clamp(40px,6vw,74px)">
+      <div>
+        <h3>Де взяти номер</h3>
+        <p>Номер накладної — 14 цифр. Нова Пошта надсилає його в SMS, щойно ми передамо посилку. Ми також пишемо його у відповідь на ваше замовлення.</p>
+      </div>
+      <div>
+        <h3>Не знайшли посилку</h3>
+        <p>Перші години після створення накладної статусу ще немає — посилка в дорозі до відділення відправлення. Якщо номер не знаходиться й пізніше, напишіть нам, ми перевіримо.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer id="ft"></footer>
+
+<script src="sprite.js?v=20260926a"></script>
+<script src="data.js?v=20260926a"></script>
+<script src="platform.js?v=20260926a"></script>
+<script src="app.js?v=20260926a"></script>
+</body>
+</html>
