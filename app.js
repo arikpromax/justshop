@@ -1411,6 +1411,7 @@
       if (inp) {
         inp.value = '';
         inp.placeholder = val.textContent || o.search || '';
+        inp.classList.remove('dd__s--type');
         inp.hidden = false;
         val.hidden = true;
         setTimeout(() => inp.focus(), 30);
@@ -1429,7 +1430,12 @@
     btn.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); }
     });
-    if (inp) inp.addEventListener('input', () => paint(inp.value));
+    /* Поки нічого не набрали, миготлива риска в полі лише відвертає увагу:
+       людина обирає зі списку. Зʼявляється, щойно почали друкувати. */
+    if (inp) inp.addEventListener('input', () => {
+      inp.classList.toggle('dd__s--type', !!inp.value);
+      paint(inp.value);
+    });
     list.addEventListener('click', e => {
       const b = e.target.closest('[data-v]');
       if (!b) return;
@@ -1800,7 +1806,7 @@
           <div class="co2__g">
             <section class="co2__c">
               <h3>Дані покупця</h3>
-              <div class="f"><label for="fName">Прізвище, імʼя та по батькові</label><input id="fName" autocomplete="name" placeholder="Як у документах — для накладної"><p class="fmsg"></p></div>
+              <div class="f"><label for="fName">Прізвище, імʼя та по батькові</label><input id="fName" autocomplete="name" placeholder="Для накладної"><p class="fmsg"></p></div>
               <div class="f"><label for="fTel">Телефон</label><input id="fTel" inputmode="tel" autocomplete="tel" value="+380 "><p class="fmsg"></p></div>
               <div class="f"><label for="fNote">Коментар до замовлення</label><input id="fNote" placeholder="Необовʼязково"></div>
             </section>
@@ -1991,10 +1997,17 @@
             api.busy('Завантажуємо перелік…');
             npCall('AddressGeneral', 'getWarehouses', {
               CityRef: form.cityRef, Limit: '500', Page: '1', Language: 'UA',
-              TypeOfWarehouseRef: NP_TYPE[form.dlv],
-            }).then(ws => {
+              /* Для поштоматів беремо лише їх, а для відділень — усі, крім
+                 поштоматів: вантажні відділення (до 1000 кг) теж приймають
+                 посилки, а раніше вони до списку не потрапляли. */
+              ...(form.dlv === 'np_postomat' ? { TypeOfWarehouseRef: NP_TYPE.np_postomat } : {}),
+            }).then(all => {
+              const ws = form.dlv === 'np_postomat'
+                ? all
+                : all.filter(w => w.TypeOfWarehouse !== NP_TYPE.np_postomat);
               const res = w => /тільки для мешканців/i.test(w.Description);
-              api.items = ws.sort((x, y) => res(x) - res(y))
+              const no = w => Number(String(w.Number).replace(/\D/g, '')) || 0;
+              api.items = ws.sort((x, y) => res(x) - res(y) || no(x) - no(y))
                 .map(w => ({ v: w.Ref, t: w.Description, s: res(w) ? 'лише для мешканців будинку' : '' }));
               if (!api.items.length) api.busy('У цьому місті таких немає');
             }).catch(() => { api.busy('Нова Пошта не відповідає'); setHint(); });
