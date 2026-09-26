@@ -1329,18 +1329,21 @@
     const o = opts || {};
     let items = o.items || [], open = false, cur = o.value || '';
 
+    /* Поле-список: доки закрите, показує обране. Щойно відкрили — у тому
+       самому рядку стає поле пошуку, щоб не шукати очима, куди писати. */
     host.classList.add('dd');
     host.innerHTML =
-      '<button class="dd__b" type="button" aria-haspopup="listbox" aria-expanded="false">' +
-        '<span class="dd__v"></span>' + icon('chev') +
-      '</button>' +
+      '<div class="dd__b" role="combobox" tabindex="0" aria-haspopup="listbox" aria-expanded="false">' +
+        '<span class="dd__v"></span>' +
+        (o.search ? '<input class="dd__s" type="text" autocomplete="off" hidden>' : '') +
+        icon('chev') +
+      '</div>' +
       '<div class="dd__p" hidden>' +
-        (o.search ? '<div class="dd__q"><input type="text" autocomplete="off" placeholder="' + esc(o.search) + '"></div>' : '') +
         '<div class="dd__l" role="listbox"></div>' +
       '</div>';
 
     const btn = $('.dd__b', host), val = $('.dd__v', host), pan = $('.dd__p', host);
-    const inp = $('.dd__q input', host), list = $('.dd__l', host);
+    const inp = $('.dd__s', host), list = $('.dd__l', host);
 
     const label = () => {
       const it = items.find(x => x.v === cur);
@@ -1369,23 +1372,33 @@
       if (!open) return;
       open = false; pan.hidden = true; host.classList.remove('is-open');
       btn.setAttribute('aria-expanded', 'false');
+      if (inp) { inp.hidden = true; inp.value = ''; }
+      val.hidden = false;
     };
     const show = () => {
       if (open) return;
       open = true; pan.hidden = false; host.classList.add('is-open');
       btn.setAttribute('aria-expanded', 'true');
-      if (inp) { inp.value = ''; }
+      if (inp) {
+        inp.value = '';
+        inp.placeholder = val.textContent || o.search || '';
+        inp.hidden = false;
+        val.hidden = true;
+        setTimeout(() => inp.focus(), 30);
+      }
       paint('');
-      if (inp) setTimeout(() => inp.focus(), 30);
       if (o.onOpen) o.onOpen(api);
     };
 
     btn.addEventListener('click', () => {
-      if (open) { shut(); return; }
+      if (open) { if (!inp) shut(); return; }
       /* Поле може бути ще не готове — наприклад, відділення без міста.
          Тоді не відкриваємо порожнечу, а кажемо, чого бракує. */
       if (o.guard && !o.guard()) return;
       show();
+    });
+    btn.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); }
     });
     if (inp) inp.addEventListener('input', () => paint(inp.value));
     list.addEventListener('click', e => {
@@ -1826,7 +1839,7 @@
       const label = form.dlv === 'np_postomat' ? 'Поштомат' : form.dlv === 'np_courier' ? 'Адреса доставки' : 'Відділення';
       box.innerHTML = `
         ${isBranch() ? '<div class="f"><label>Область</label><div id="fArea"></div><p class="fmsg"></p></div>' : ''}
-        <div class="f"><label>${isBranch() ? 'Місто, селище або село' : 'Місто'}</label>${form.dlv === 'np_courier'
+        <div class="f"><label>Місто</label>${form.dlv === 'np_courier'
             ? '<input id="fCity" autocomplete="off" placeholder="Почніть вводити назву">'
             : '<div id="fCity"></div>'}<p class="fmsg"></p></div>
         <div class="f"><label>${label}</label>${isBranch()
