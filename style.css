@@ -180,6 +180,14 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
 .plate--ph img{object-fit:contain}
 .plate--ph::after{display:none}
 .plate::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(0,0,0,.02) 0 1px,transparent 1px 7px);pointer-events:none}
+/* Товар без фото: бренд великим моноширинним капсом, під ним дрібно «фото згодом» */
+.plate__none{display:grid;gap:8px;place-items:center;text-align:center;padding:12%;font-family:var(--mono);text-transform:uppercase;color:var(--mut)}
+.plate__none b{font-weight:500;font-size:clamp(13px,1.6vw,18px);letter-spacing:.16em;color:var(--tx)}
+.plate__none i{font-style:normal;font-size:10px;letter-spacing:.14em}
+.pdp__media .plate__none b{font-size:clamp(18px,2.4vw,28px)}
+.line .plate__none{padding:6px}
+.line .plate__none b{font-size:10px;letter-spacing:.08em}
+.line .plate__none i{display:none}
 .tagi{position:absolute;bottom:0;left:0;padding:5px 10px;background:var(--ink);color:#fff;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;z-index:2}
 .tagi--acc{background:var(--acc)}
 .szrow{position:absolute;left:0;right:0;bottom:0;display:flex;flex-wrap:wrap;gap:4px;padding:9px 10px;background:rgba(255,255,255,.93);backdrop-filter:blur(3px);transform:translateY(101%);transition:transform .28s var(--ease);z-index:3}
