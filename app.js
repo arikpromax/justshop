@@ -1196,8 +1196,13 @@
       track.style.transition = smooth ? '' : 'none';
       track.style.transform = 'translateX(' + px + ')';
     };
+    // наближення пальцями (нижче): поки фото наближене, гортання вимкнене
+    let zs = 1;
+    const zoomed = () => zs > 1.01;
+    let unzoom = () => {};
     const show = i => {
       if (shots.length < 2) return;
+      unzoom();                                   // нове фото — завжди цілим кадром
       shot = (i + shots.length) % shots.length;
       thumbs.forEach((x, k) => x.classList.toggle('on', k === shot));
       slide(-shot * 100 + '%', true);
@@ -1214,10 +1219,19 @@
     if (shotBox && shots.length > 1) {
       let x0 = 0, y0 = 0, dx = 0, lock = '', swiped = false;
       shotBox.addEventListener('touchstart', e => {
+        /* Два пальці чи вже наближене фото — це не гортання: пальці
+           зараз працюють із самим знімком. Раніше після наближення
+           один палець убік перекидав на сусіднє фото. */
+        if (e.touches.length > 1 || zoomed()) {
+          if (lock === 'x') slide(-shot * 100 + '%', true);
+          lock = 'z';
+          return;
+        }
         x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
         dx = 0; lock = ''; swiped = false;
       }, { passive: true });
       shotBox.addEventListener('touchmove', e => {
+        if (lock === 'z') return;
         const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
         // перший помітний рух вирішує: гортаємо фото чи крутимо сторінку
         if (!lock && (Math.abs(mx) > 8 || Math.abs(my) > 8)) lock = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
@@ -1254,8 +1268,7 @@
     if (shotBox) {
       const pic = () => track ? track.children[shot] : $('.pdp__media .plate img');
 
-      /* Тільки мишею. Пальцями телефон наближає сторінку сам, і два
-         наближення одне поверх одного лише заважали. */
+      /* Мишею — наближення там, де курсор. Пальці — окремо, нижче. */
       if (matchMedia('(hover:hover)').matches) {
         shotBox.addEventListener('mousemove', e => {
           const im = pic();
@@ -1274,7 +1287,100 @@
         });
       }
 
-      /* гортання й ховання стрілок поки наближено не чіпаємо */
+      /* Пальцями. Два пальці наближають саме фото, а не сторінку:
+         точка між пальцями лишається під ними, як у галереї телефона.
+         Поки наближено, один палець тягає кадр, і край знімка не
+         відʼїжджає всередину рамки. Подвійний дотик — наблизити в цьому
+         місці або повернути як було. */
+      let zx = 0, zy = 0, pin = null, pan = null;
+      let tap = null, lastTap = null, moved = false;
+      const MAX = 4;
+      const fit = () => {
+        const mx = (zs - 1) * shotBox.offsetWidth / 2, my = (zs - 1) * shotBox.offsetHeight / 2;
+        zx = Math.max(-mx, Math.min(mx, zx));
+        zy = Math.max(-my, Math.min(my, zy));
+      };
+      const paint = smooth => {
+        const im = pic();
+        if (!im) return;
+        im.style.transition = smooth ? 'transform .25s' : 'none';
+        im.style.transformOrigin = '';
+        im.style.transform = zoomed() ? 'translate(' + zx + 'px,' + zy + 'px) scale(' + zs + ')' : '';
+        shotBox.classList.toggle('is-zoom', zoomed());
+      };
+      unzoom = () => {
+        if (zs === 1 && !zx && !zy) return;
+        zs = 1; zx = 0; zy = 0;
+        paint(true);
+      };
+      // координати відносно центру кадру
+      const rel = t => {
+        const r = shotBox.getBoundingClientRect();
+        return [t.clientX - r.left - r.width / 2, t.clientY - r.top - r.height / 2];
+      };
+      const mid = (a, b) => { const p = rel(a), q = rel(b); return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]; };
+      const gap = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1;
+      const begin = e => {
+        if (e.touches.length === 2) {
+          const a = e.touches[0], b = e.touches[1];
+          pin = { d: gap(a, b), s: zs, m: mid(a, b), x: zx, y: zy };
+          pan = null; tap = null;
+        } else if (e.touches.length === 1) {
+          pan = zoomed() ? { p: rel(e.touches[0]), x: zx, y: zy } : null;
+        }
+      };
+      shotBox.addEventListener('touchstart', e => {
+        if (e.touches.length === 1) { tap = { t: Date.now(), p: rel(e.touches[0]) }; moved = false; }
+        begin(e);
+      }, { passive: true });
+      shotBox.addEventListener('touchmove', e => {
+        if (e.touches.length === 2 && pin) {
+          e.preventDefault();                       // сторінку не наближаємо — лише фото
+          const a = e.touches[0], b = e.touches[1];
+          const sc = Math.max(1, Math.min(MAX, pin.s * gap(a, b) / pin.d));
+          const m = mid(a, b);
+          zx = m[0] - (pin.m[0] - pin.x) * sc / pin.s;
+          zy = m[1] - (pin.m[1] - pin.y) * sc / pin.s;
+          zs = sc; fit(); paint(false);
+          return;
+        }
+        if (e.touches.length !== 1) return;
+        if (tap) {
+          const p = rel(e.touches[0]);
+          if (Math.hypot(p[0] - tap.p[0], p[1] - tap.p[1]) > 10) moved = true;
+        }
+        if (pan) {
+          e.preventDefault();
+          const p = rel(e.touches[0]);
+          zx = pan.x + p[0] - pan.p[0];
+          zy = pan.y + p[1] - pan.p[1];
+          fit(); paint(false);
+        }
+      }, { passive: false });
+      shotBox.addEventListener('touchend', e => {
+        // один палець із двох підняли — тягнемо далі без стрибка
+        if (e.touches.length === 1) { pin = null; begin(e); return; }
+        if (e.touches.length) return;
+        const wasPin = !!pin;
+        pin = null; pan = null;
+        if (wasPin && zs < 1.08) { unzoom(); return; }  // майже не наблизили — повертаємо рівно
+        if (wasPin || !tap || moved) { tap = null; return; }
+        const now = Date.now();
+        if (lastTap && now - lastTap.t < 320 &&
+            Math.hypot(tap.p[0] - lastTap.p[0], tap.p[1] - lastTap.p[1]) < 30) {
+          if (zoomed()) unzoom();
+          else {
+            zs = 2.5;
+            zx = -tap.p[0] * (zs - 1);
+            zy = -tap.p[1] * (zs - 1);
+            fit(); paint(true);
+          }
+          lastTap = null;
+        } else lastTap = { t: now, p: tap.p };
+        tap = null;
+      }, { passive: true });
+      // iPhone наближає сторінку власними жестами — зупиняємо їх над фото
+      shotBox.addEventListener('gesturestart', e => e.preventDefault());
     }
 
     const szPick = $('#szPick');
