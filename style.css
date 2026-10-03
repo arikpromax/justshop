@@ -300,7 +300,12 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
 .grid--list .card__p{padding-top:14px}
 
 /* ---------- сторінка товару ---------- */
-.pdp{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(24px,4vw,70px);align-items:start}
+/* Ліва колонка рівно завширшки з фото. Фото обмежене висотою екрана,
+   щоб влазило без прокрутки, і на ноутбуці виходило вужчим за свою
+   половину сторінки — між ним і текстом зяяла порожнеча. Тепер текст
+   стоїть одразу за фото, а рядки опису не розтягуються задовго. */
+.pdp{display:grid;grid-template-columns:min(calc(100dvh - 250px),54%) minmax(0,1fr);gap:clamp(24px,4vw,70px);align-items:start}
+.pdp>div:last-child{max-width:640px}
 .pdp__media{position:sticky;top:88px}
 /* Фото не має займати весь екран: інакше ряд мініатюр лишається за
    краєм, і покупець не здогадується, що кадрів більше. */
@@ -454,6 +459,7 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
   .co{grid-template-columns:1fr}
   .sum{position:static}
   .pdp{grid-template-columns:1fr}
+  .pdp>div:last-child{max-width:none}
   .pdp__media{position:static;max-width:460px}
 }
 @media (max-width:860px){
