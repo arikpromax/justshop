@@ -138,6 +138,7 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
 .hero__sub{margin-top:clamp(20px,3.6vh,34px);display:flex;flex-wrap:wrap;align-items:center;gap:12px 14px}
 .hero__note{max-width:44ch;color:var(--mut-dk);font-size:14.5px;line-height:1.5}
 .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:20px}
+.chips[hidden]{display:none}
 .chip{border:1px solid rgba(255,255,255,.18);border-radius:100px;padding:7px 14px;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.72);transition:.18s}
 .chip:hover{border-color:var(--acc);color:#fff}
 .hero__hint{margin-top:16px;min-height:20px;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut-dk)}

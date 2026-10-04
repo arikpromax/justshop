@@ -783,9 +783,19 @@
       location.href = 'katalog.html?q=' + encodeURIComponent(q);
     });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#wishGo').click(); } });
-    $$('.chip').forEach(c => c.addEventListener('click', () => {
-      inp.value = c.dataset.q; grow(); inp.focus();
-    }));
+    /* Чіпи під полем — той самий список, що в адмінці «Що шукають».
+       Раніше вони були вписані в сторінку, і прибрати їх з адмінки не
+       виходило. Порожній список — рядка чіпів немає. */
+    const chips = $('#chips');
+    if (chips) {
+      chips.innerHTML = WISHES.map(w => `<button class="chip" type="button" data-q="${esc(w)}">${esc(w)}</button>`).join('');
+      chips.hidden = !WISHES.length;
+      chips.onclick = e => {
+        const c = e.target.closest('[data-q]');
+        if (!c) return;
+        inp.value = c.dataset.q; grow(); inp.focus();
+      };
+    }
     relayout();
 
     /* друкарська машинка в підказці поля, поки порожньо */
@@ -837,10 +847,13 @@
     $('#clubs').innerHTML = CLUBS.map(c => `<div class="club">
       <span class="crest">${esc(c.m)}</span>
       <span><b>${esc(c.n)}</b><span>${esc(c.d)}</span></span></div>`).join('');
+    // прибрали всі клуби в адмінці — блок зникає разом із заголовком
+    $('#clubs').closest('section').hidden = !CLUBS.length;
 
 
     /* питання */
     $('#faq').innerHTML = FAQ.map(f => `<details><summary>${esc(f.q)}${icon('chev')}</summary><p>${esc(f.a)}</p></details>`).join('');
+    $('#faq').closest('section').hidden = !FAQ.length;
 
   }
 

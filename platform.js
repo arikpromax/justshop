@@ -79,9 +79,18 @@
     return { t: r.title, d: r.text, list: lines(x.list), link: x.link || '', linkText: x.linkText || '' };
   };
   const swap = (arr, next) => { if (next && next.length) arr.splice(0, arr.length, ...next); };
+  /* Для блоків головної, які власник може прибрати зовсім («Що шукають»,
+     клуби, питання): якщо база відповіла, порожній список означає «прибрали
+     все», а не «даних немає». Інакше сайт підставляв запасний список із
+     коду, і видалене в адмінці лишалося на сайті. */
+  const swapAll = (arr, next, real) => {
+    if (real) arr.splice(0, arr.length, ...(next || []));
+    else swap(arr, next);
+  };
 
   const apply = (items, texts, stockRows) => {
     const by = byCol(items || []);
+    const real = !!(items && items.length);   // база справді відповіла для цього сайту
 
     /* категорії: технічний код тримається в extra.catkey */
     swap(CATS, (by.cats || []).map(r => ({
@@ -117,9 +126,9 @@
       };
     }));
 
-    swap(WISHES, (by.wishes || []).map(r => r.title));
-    swap(CLUBS, (by.clubs || []).map(r => ({ m: (r.extra && r.extra.mono) || '', n: r.title, d: r.text })));
-    swap(FAQ, (by.faq || []).map(r => ({ q: r.title, a: r.text })));
+    swapAll(WISHES, (by.wishes || []).map(r => r.title), real);
+    swapAll(CLUBS, (by.clubs || []).map(r => ({ m: (r.extra && r.extra.mono) || '', n: r.title, d: r.text })), real);
+    swapAll(FAQ, (by.faq || []).map(r => ({ q: r.title, a: r.text })), real);
     swap(DELIVERY, (by.delivery || []).map(block));
     swap(PAYMENT, (by.payment || []).map(block));
     swap(RETURNS, (by.returns || []).map(block));
