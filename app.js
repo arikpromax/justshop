@@ -148,6 +148,30 @@
     && avail(p, size) <= ((p.stkLow && p.stkLow[size]) || 2);
   // як розмір зветься в базі: замовлення має влучити рівно в свій рядок складу
   const dbSize = (p, size) => ((p.stkKey && p.stkKey[size]) || size);
+
+  /* Ціна розміру. У УкрСкладі кожен розмір — окремий товар зі своєю ціною
+     (Cortez 38 — 4 000, 40.5 — 5 000). Своєї немає — ціна картки. */
+  const priceOf = (p, size) => (p.stkPrice && p.stkPrice[size]) || p.base || p.price;
+  const oldOf = (p, size) => (p.stkPrice && p.stkPrice[size]
+    ? (p.stkOld && p.stkOld[size]) || 0 : (p.base != null ? p.baseOld : p.old) || 0);
+  /* Каталог, фільтр і сортування дивляться на p.price — ставимо туди
+     найменшу ціну серед розмірів, які є. Різні — на плитці «від». */
+  function priceFrom(p) {
+    if (p.base == null) { p.base = p.price; p.baseOld = p.old; }
+    const have = p.sizes.filter(x => avail(p, x) > 0);
+    const list = (have.length ? have : p.sizes).map(x => ({ s: x, v: priceOf(p, x) }));
+    if (!list.length) return;
+    const lo = list.reduce((a, b) => (b.v < a.v ? b : a));
+    p.from = list.some(x => x.v !== lo.v);
+    p.price = lo.v;
+    p.old = p.from ? 0 : oldOf(p, lo.s);
+  }
+  // ціна на сторінці товару: розмір обрали — його ціна, ще ні — «від»
+  const priceHtml = (p, size) => {
+    if (!size && p.from) return 'від ' + money(p.price);
+    const v = size ? priceOf(p, size) : p.price, o = size ? oldOf(p, size) : p.old;
+    return money(v) + (o > v ? `<s>${money(o)}</s><em>−${Math.round((1 - v / o) * 100)}%</em>` : '');
+  };
   const inCart = (id, size) => cart.filter(l => l.id === id && l.size === size)
     .reduce((n, l) => n + l.qty, 0);
 
@@ -177,11 +201,14 @@
     const by = {};
     rows.forEach(r => {
       const k = tidySize(r.size) || 'Універсальний';
-      const m = by[r.item_id] || (by[r.item_id] = { free: {}, key: {}, low: {} });
+      const m = by[r.item_id] || (by[r.item_id] = { free: {}, key: {}, low: {}, price: {}, old: {} });
       const free = Math.max(0, (Number(r.qty) || 0) - (Number(r.reserved) || 0));
       m.free[k] = (m.free[k] || 0) + free;
       if (free > 0 || !m.key[k]) m.key[k] = r.size;
       m.low[k] = Math.min(m.low[k] == null ? 99 : m.low[k], Number(r.low_at) || 0);
+      // своя ціна розміру — з того рядка, що є в наявності
+      const pr = Number(r.price) || 0;
+      if (pr > 0 && (free > 0 || !m.price[k])) { m.price[k] = pr; m.old[k] = Number(r.old_price) || 0; }
     });
     PRODUCTS.forEach(p => {
       const m = by[p.itemId];
@@ -189,6 +216,9 @@
       p.stk = m.free;
       p.stkKey = m.key;
       p.stkLow = m.low;
+      p.stkPrice = m.price;
+      p.stkOld = m.old;
+      priceFrom(p);
     });
   }
 
@@ -206,7 +236,7 @@
     writeCart(cart);
   }
   const cartCount = () => cart.reduce((s, l) => s + l.qty, 0);
-  const cartSum = () => cart.reduce((s, l) => s + (byId(l.id) || {}).price * l.qty, 0);
+  const cartSum = () => cart.reduce((s, l) => { const p = byId(l.id); return s + (p ? priceOf(p, l.size) : 0) * l.qty; }, 0);
   function paintCount() { $$('.cartbtn b').forEach(b => { b.textContent = cartCount() || ''; }); }
 
   /* ---------- дрібне ---------- */
@@ -262,7 +292,7 @@
       <div class="card__b">
         ${p.brand ? `<span class="card__brand">${esc(p.brand)}</span>` : ''}
         <h3 class="card__n"><a href="tovar.html?id=${encodeURIComponent(p.id)}">${esc(p.name)}</a></h3>
-        <p class="card__p">${p.old ? `<u>${money(p.price)}</u><s>${money(p.old)}</s>` : money(p.price)}</p>
+        <p class="card__p">${p.from ? 'від ' + money(p.price) : p.old ? `<u>${money(p.price)}</u><s>${money(p.old)}</s>` : money(p.price)}</p>
       </div>
     </article>`;
   }
@@ -511,7 +541,7 @@
       out.innerHTML = list.slice(0, 6).map(p => `<a class="srow" href="tovar.html?id=${encodeURIComponent(p.id)}">
           ${plate(p, { meta: false, tag: false })}
           <span class="srow__b">${p.brand ? `<b>${esc(p.brand)}</b>` : ''}<span>${esc(p.name)}</span></span>
-          <em>${money(p.price)}</em>
+          <em>${p.from ? 'від ' : ''}${money(p.price)}</em>
         </a>`).join('')
         + `<a class="srch__all" href="katalog.html?q=${encodeURIComponent(inp.value.trim())}">Усі знахідки (${list.length}) ${icon('arrow')}</a>`;
     };
@@ -1143,7 +1173,7 @@
       JS_DB.stockOf(p.itemId).then(rows => {
         if (!Array.isArray(rows)) return;
         const old = window.JS_STOCK_ROWS.filter(r => r.item_id === p.itemId);
-        const key = list => JSON.stringify(list.map(r => [r.size, r.qty, r.reserved]).sort());
+        const key = list => JSON.stringify(list.map(r => [r.size, r.qty, r.reserved, r.price, r.old_price]).sort());
         if (key(old) === key(rows)) return;
         window.JS_STOCK_ROWS = window.JS_STOCK_ROWS.filter(r => r.item_id !== p.itemId).concat(rows);
         if (window.JS_REDRAW) JS_REDRAW();
@@ -1173,7 +1203,7 @@
         <nav class="mono" style="color:var(--mut);margin-bottom:14px"><a href="katalog.html">Каталог</a> / <a href="katalog.html?cat=${p.cat}">${esc(catName(p.cat))}</a></nav>
         <span class="pdp__brand">${p.brand ? esc(p.brand) + ' · ' : ''}${sku(p)}</span>
         <h1>${esc(p.name)}</h1>
-        <p class="price">${money(p.price)}${p.old ? `<s>${money(p.old)}</s><em>−${Math.round((1 - p.price / p.old) * 100)}%</em>` : ''}</p>
+        <p class="price" id="pdpPrice">${priceHtml(p, size)}</p>
         <p class="stock${p.stock === false || gone ? ' stock--out' : ''}"><i></i>${stockLine(p)}</p>
         <p class="pdp__desc">${esc(p.desc)}</p>
         <div class="pick">
@@ -1408,6 +1438,7 @@
       const ask = $('#szMsg');
       if (ask) ask.classList.remove('fmsg--ask');
       $$('#szPick [data-s]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      $('#pdpPrice').innerHTML = priceHtml(p, size);
       // останні одиниці варто показати ще до кошика
       $('#szMsg').textContent = lowLeft(p, size) ? 'Залишилось ' + avail(p, size) : '';
     });
@@ -1811,7 +1842,7 @@
         color: '',
         qty: l.qty,
         title: (p.brand ? p.brand + ' ' : '') + p.name,
-        price: p.price
+        price: priceOf(p, l.size)
       };
     }).filter(Boolean);
 
@@ -1900,7 +1931,7 @@
             <div class="line__t">
               <div><h3><a href="tovar.html?id=${p.id}">${esc(p.brand)} ${esc(p.name)}</a></h3>
                 <p class="line__m">Розмір ${esc(l.size)} · ${sku(p)}</p></div>
-              <span class="line__p">${money(p.price * l.qty)}</span>
+              <span class="line__p">${money(priceOf(p, l.size) * l.qty)}</span>
             </div>
             <div class="line__f">
               <div class="qty">
@@ -2296,7 +2327,7 @@
         }
       }
       const text = ['ЗАМОВЛЕННЯ ' + no, ''].concat(
-        cart.map(l => { const it = byId(l.id); return '• ' + it.brand + ' ' + it.name + ' / ' + l.size + ' × ' + l.qty + ' — ' + Math.round(it.price * l.qty) + ' грн'; })
+        cart.map(l => { const it = byId(l.id); return '• ' + it.brand + ' ' + it.name + ' / ' + l.size + ' × ' + l.qty + ' — ' + Math.round(priceOf(it, l.size) * l.qty) + ' грн'; })
       ).concat([
         '', 'Сума: ' + Math.round(cartSum()) + ' грн',
         'Доставка: ' + d.n + (form.dlv === 'pickup' ? '' : ' — ' + cityText() + ', ' + brText()),
@@ -2312,7 +2343,7 @@
         const it = byId(l.id);
         return {
           id: it.id, brand: it.brand, name: it.name, size: l.size, qty: l.qty,
-          price: it.price, sum: Math.round(it.price * l.qty),
+          price: priceOf(it, l.size), sum: Math.round(priceOf(it, l.size) * l.qty),
           weight: Number(it.weight) || Number(CFG.weightDefault) || 0.5
         };
       });

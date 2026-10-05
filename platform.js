@@ -44,13 +44,25 @@
     keepalive: !!keep
   }).then(r => (r.ok ? r.json() : Promise.reject(new Error('http ' + r.status))));
 
+  /* Своя ціна розміру (price, old_price) приходить з обміну з УкрСкладом:
+     там кожен розмір — окремий товар зі своєю ціною. Поки цих колонок
+     у базі немає, беремо залишки без них — сайт працює як раніше. */
+  const BASE_COLS = 'item_id,size,qty,reserved,low_at';
+  let cols = BASE_COLS + ',price,old_price';
+  const getStock = (path, range) => (cols === BASE_COLS
+    ? get(path + '&select=' + cols, range)
+    // «400» — бази ще не оновили: одразу без цін, без трьох повторів
+    : once(path + '&select=' + cols, range).catch(e => {
+        if (String(e && e.message) === 'http 400') cols = BASE_COLS;
+        return get(path + '&select=' + cols, range);
+      }));
+
   /* Залишки складу. Беремо сторінками: база віддає максимум 1000 рядків,
      а позицій (товар × розмір) у магазині одягу буває кілька тисяч. */
   const stock = async () => {
     const out = [];
     for (let from = 0; from < 8000; from += 1000) {
-      const part = await get('/stock?site_id=eq.' + id + '&select=item_id,size,qty,reserved,low_at',
-        from + '-' + (from + 999));
+      const part = await getStock('/stock?site_id=eq.' + id, from + '-' + (from + 999));
       out.push.apply(out, part);
       if (part.length < 1000) break;
     }
@@ -60,8 +72,7 @@
   /* Залишки одного товару — для відкритої сторінки товару. Каталог у
      браузері буває до 10 хвилин старий, а власник міг щойно скасувати
      замовлення чи довезти розмір. */
-  const stockOf = itemId => get('/stock?site_id=eq.' + id + '&item_id=eq.' + Number(itemId) +
-    '&select=item_id,size,qty,reserved,low_at');
+  const stockOf = itemId => getStock('/stock?site_id=eq.' + id + '&item_id=eq.' + Number(itemId));
 
   window.JS_DB = { id: id, rpc: rpc, stockOf: stockOf };
   // Функція бота: вона ж готує оплату карткою й приймає відповідь банку
