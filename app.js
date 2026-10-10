@@ -2419,9 +2419,6 @@
     blocks('#dlvBlocks', DELIVERY);
     blocks('#payBlocks', PAYMENT);
     blocks('#retBlocks', RETURNS);
-    /* таблиця розмірів прямо на сторінці */
-    const rz = $('#szGuide');
-    if (rz) sizeUI(rz, 'top');
   }
 
   /* Відстеження посилки — окрема сторінка, кнопка на неї є в шапці */
