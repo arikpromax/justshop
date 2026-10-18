@@ -1930,9 +1930,10 @@
 
     function applyShort(short) {
       dropCache();                    // залишки в браузері застаріли — наступна сторінка візьме свіжі
-      let msg = '';
+      const gone = [], less = [];
       (short || []).forEach(s => {
-        const p = PRODUCTS.find(x => x.itemId === Number(s.item_id));
+        // і серед тих, що вже зникли з каталогу: саме їх найчастіше й забирають
+        const p = PRODUCTS.find(x => x.itemId === Number(s.item_id)) || GONE.find(x => x.itemId === Number(s.item_id));
         if (!p) return;
         const size = tidySize(s.size) || '';
         const left = Math.max(0, Number(s.left) || 0);
@@ -1940,14 +1941,35 @@
         for (let i = cart.length - 1; i >= 0; i--) {
           const l = cart[i];
           if (l.id !== p.id || l.size !== size) continue;
-          if (left === 0) { cart.splice(i, 1); msg = 'Розмір ' + size + ' щойно забрали'; }
-          else if (l.qty > left) { l.qty = left; msg = 'Лишилось ' + left + ' — кількість зменшили'; }
+          if (left === 0) { cart.splice(i, 1); gone.push({ p: p, size: size }); }
+          else if (l.qty > left) { l.qty = left; less.push({ p: p, size: size, left: left }); }
         }
       });
       writeCart(cart);
       paint();
-      if (msg) toast(msg);
+      if (gone.length || less.length) taken(gone, less);
       hold();
+    }
+
+    /* Річ забрав хтось інший, поки людина оформлювала. Не короткий напис
+       знизу, який не встигаєш прочитати, а вікно по центру: що саме
+       забрали — і кнопка «Зрозуміло». */
+    function taken(gone, less) {
+      const title = gone.length ? 'Упс, не встигли' : 'Лишилось менше';
+      const lead = gone.length && less.length
+        ? 'Поки ви оформлювали, частину речей купив хтось інший. Кошик ми вже поправили.'
+        : gone.length
+          ? (gone.length > 1 ? 'Поки ви оформлювали, ці речі купив хтось інший. Ми прибрали їх із кошика.'
+                             : 'Поки ви оформлювали, цю річ купив хтось інший. Ми прибрали її з кошика.')
+          : 'Цих речей лишилось менше, ніж у кошику, — кількість зменшили.';
+      const row = (x, note) => `<li><b>${esc((x.p.brand ? x.p.brand + ' ' : '') + x.p.name)}${x.size ? ', ' + esc(x.size) : ''}</b><span>${note}</span></li>`;
+      modal('md--alert', `
+        <h2 class="dsp h-md">${title}</h2>
+        <p class="md__lead">${lead}</p>
+        <ul class="alert__list">${gone.map(x => row(x, 'забрали')).join('')}${less.map(x => row(x, 'лишилось ' + x.left)).join('')}</ul>
+        <button class="btn btn--wide" type="button" data-x>Зрозуміло</button>`);
+      const ok = $('#md .btn');
+      if (ok) ok.focus();
     }
 
     const form = {

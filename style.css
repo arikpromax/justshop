@@ -442,6 +442,13 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
 @keyframes pop{from{transform:translate(-50%,-46%);opacity:0}}
 @keyframes slide{from{transform:translateX(24px);opacity:0}}
 .md__x{position:absolute;top:16px;right:16px;font-size:20px;z-index:2}
+/* «Упс, не встигли»: невелике вікно по центру, щоб людина спокійно прочитала */
+.md--alert .md__box{inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 2*var(--pad)));max-height:90vh;padding:clamp(24px,3vw,34px);text-align:center;animation:pop .26s var(--ease)}
+.md--alert .md__x{display:none}
+.md--alert .md__lead{margin-left:auto;margin-right:auto}
+.alert__list{list-style:none;margin:0 0 22px;padding:0;text-align:left;border-top:1px solid var(--line)}
+.alert__list li{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px}
+.alert__list li span{flex:none;color:var(--acc);font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
 .md h2{margin-bottom:8px}
 .md__lead{color:var(--mut);font-size:14.5px;margin-bottom:22px;max-width:44ch}
 
