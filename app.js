@@ -1851,12 +1851,13 @@
     const ask = () => fetch(JS_FN + '?paystate=' + id + '&ref=' + encodeURIComponent(ref))
       .then(r => r.json())
       .then(r => {
-        const state = !r || !r.ok ? 'failed' : r.state === 'paid' ? 'paid' : r.status === 'cancelled' ? 'cancelled' : r.state;
+        // unpaid — бот спитав monobank: рахунок відкривали, але не платили. Чекати нема чого.
+        const state = !r || !r.ok ? 'failed' : r.state === 'paid' ? 'paid' : r.status === 'cancelled' ? 'cancelled' : r.state === 'unpaid' ? 'failed' : r.state;
         if (state === 'paid' || state === 'cancelled') forgetPaying();   // далі «Назад» уже нічого не ловить
-        if (state === 'paid' || state === 'cancelled' || state === 'failed' || ++tries >= 6) payScreen(id, ref, state === 'wait' ? 'failed' : state);
-        else setTimeout(ask, 2000);
+        if (state === 'paid' || state === 'cancelled' || state === 'failed' || ++tries >= 10) payScreen(id, ref, state === 'wait' ? 'failed' : state);
+        else setTimeout(ask, 1200);
       })
-      .catch(() => { if (++tries >= 6) payScreen(id, ref, 'failed'); else setTimeout(ask, 2000); });
+      .catch(() => { if (++tries >= 10) payScreen(id, ref, 'failed'); else setTimeout(ask, 1200); });
     ask();
     return true;
   }
