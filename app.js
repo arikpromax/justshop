@@ -236,7 +236,7 @@
     writeCart(cart);
   }
   const cartCount = () => cart.reduce((s, l) => s + l.qty, 0);
-  const cartSum = () => cart.reduce((s, l) => { const p = byId(l.id); return s + (p ? priceOf(p, l.size) : 0) * l.qty; }, 0);
+  const cartSum = () => cart.reduce((s, l) => { const p = cartItem(l.id); return s + (p ? priceOf(p, l.size) : 0) * l.qty; }, 0);
   function paintCount() { $$('.cartbtn b').forEach(b => { b.textContent = cartCount() || ''; }); }
 
   /* ---------- дрібне ---------- */
@@ -1890,7 +1890,7 @@
     // позиції у вигляді, зрозумілому базі: номер товару й розмір так,
     // як він записаний на складі
     const orderLines = () => cart.map(l => {
-      const p = byId(l.id);
+      const p = cartItem(l.id);
       if (!p || !p.itemId) return null;
       return {
         item_id: p.itemId,
@@ -1980,7 +1980,7 @@
 
     function lines() {
       return cart.map((l, i) => {
-        const p = byId(l.id);
+        const p = cartItem(l.id);
         return `<div class="line">
           ${plate(p, { meta: false, tag: false })}
           <div class="line__b">
@@ -2383,7 +2383,7 @@
         }
       }
       const text = ['ЗАМОВЛЕННЯ ' + no, ''].concat(
-        cart.map(l => { const it = byId(l.id); return '• ' + it.brand + ' ' + it.name + ' / ' + l.size + ' × ' + l.qty + ' — ' + Math.round(priceOf(it, l.size) * l.qty) + ' грн'; })
+        cart.map(l => { const it = cartItem(l.id); return '• ' + it.brand + ' ' + it.name + ' / ' + l.size + ' × ' + l.qty + ' — ' + Math.round(priceOf(it, l.size) * l.qty) + ' грн'; })
       ).concat([
         '', 'Сума: ' + Math.round(cartSum()) + ' грн',
         'Доставка: ' + d.n + (form.dlv === 'pickup' ? '' : ' — ' + cityText() + ', ' + brText()),
@@ -2396,7 +2396,7 @@
          як їх називає сама НП, а коди міста й відділення вже перевірені. */
       const NP_SERVICE = { np_branch: 'WarehouseWarehouse', np_postomat: 'WarehouseWarehouse', np_courier: 'WarehouseDoors' };
       const goods = cart.map(l => {
-        const it = byId(l.id);
+        const it = cartItem(l.id);
         return {
           id: it.id, brand: it.brand, name: it.name, size: l.size, qty: l.qty,
           price: priceOf(it, l.size), sum: Math.round(priceOf(it, l.size) * l.qty),
@@ -2507,6 +2507,12 @@
   /* Довести щойно отримані товари до вигляду, з яким працює сайт */
   // Товари, прибрані з каталогу (продані чи без фото) — лише для прямих посилань
   const GONE = [];
+  /* Річ у кошику шукаємо й серед тимчасово відсутніх. Останню одиницю
+     притримує сам покупець, поки відкритий його кошик, або вона пішла в його
+     ж неоплачене замовлення — тоді на інших сторінках річ рахується
+     «немає» і раніше мовчки вилітала з кошика. Тепер лишається, а кошик
+     сам покаже, чи її можна купити. */
+  const cartItem = id => byId(id) || GONE.find(x => String(x.id) === String(id));
 
   function prep() {
     PRODUCTS.forEach(p => { p.sizes = tidySizes(p.sizes); p.brand = tidyBrand(p.brand); });
@@ -2542,7 +2548,7 @@
        поклала, — оформлення показувало порожнечу. Тому щоразу беремо кошик
        наново зі сховища: там він цілий. */
     cart = readCart();
-    if (PRODUCTS.length) cart = cart.filter(l => byId(l.id));
+    if (PRODUCTS.length) cart = cart.filter(l => cartItem(l.id));
   }
 
   function boot() {
