@@ -1744,7 +1744,7 @@
         if (!r || r.ok === false) throw new Error((r && r.error) || 'pay');
         /* monobank дає готове посилання на свою сторінку оплати;
            форма лишилась для інших банків, якщо колись знадобляться. */
-        if (r.redirect) { location.href = r.redirect; return; }
+        if (r.redirect) { rememberInvoice(r.invoice); location.href = r.redirect; return; }
         if (!r.data || !r.signature) throw new Error('pay');
         const f = document.createElement('form');
         f.method = 'POST'; f.action = r.url; f.acceptCharset = 'utf-8'; f.hidden = true;
@@ -1763,6 +1763,9 @@
   function payScreen(id, ref, state) {
     const wrap = $('#co') || $('#done');
     if (!wrap) return;
+    // скасувати можна, якщо цей браузер знає рахунок і памʼятає, що лежало в кошику
+    const mine = readPaying();
+    const canCancel = !!(mine && mine.id === id && mine.invoice && (mine.lines || []).length);
     const ok = state === 'paid';
     const gone = state === 'cancelled';
     const wait = state === 'check';
@@ -1772,7 +1775,7 @@
       : gone ? 'Оплата не надійшла за 10 хвилин, тож товар повернувся в продаж. Оформіть замовлення ще раз.'
       : wait ? 'Це займає кілька секунд.'
       : broken ? 'Замовлення збережене, але сторінка оплати не відкрилась. Спробуйте ще раз — якщо не оплатити протягом 10 хвилин, замовлення скасується само.'
-      : 'Гроші не списалися. Спробуйте ще раз — якщо не оплатити протягом 10 хвилин, замовлення скасується само.';
+      : 'Гроші не списалися. Оплатіть ще раз або скасуйте замовлення — речі повернуться в кошик, і можна буде обрати інший спосіб оплати. Без оплати за 10 хвилин замовлення скасується само.';
     wrap.outerHTML = `<div class="done" id="done">
       ${ok ? `<div class="done__ok">${icon('check')}</div>` : ''}
       <h1 class="dsp h-md">${title}</h1>
@@ -1780,14 +1783,61 @@
       <p class="done__code">Номер ${esc(ref)}</p>
       <div class="done__cta">
         ${ok || gone || wait ? `<a class="btn" href="katalog.html">Повернутися в каталог ${icon('arrow')}</a>`
-          : `<button type="button" class="btn" id="payAgain">Оплатити ще раз ${icon('arrow')}</button>`}
+          : `<button type="button" class="btn" id="payAgain">Оплатити ще раз ${icon('arrow')}</button>`
+            + (canCancel ? `<button type="button" class="btn btn--gh" id="payCancel">Скасувати й повернутись у кошик</button>` : '')}
       </div>
     </div>`;
     const again = $('#payAgain');
     if (again) again.addEventListener('click', () => {
       again.disabled = true; again.textContent = 'Відкриваю оплату…';
+      rememberPaying(id, ref);
       payGo(id, ref).catch(() => { again.disabled = false; again.textContent = 'Оплатити ще раз'; toast('Оплата не відкрилась — спробуйте за хвилину'); });
     });
+    /* Скасувати: бот перевіряє в банку, що гроші не пройшли, анулює рахунок
+       і повертає річ у продаж, а ми кладемо речі назад у кошик. */
+    const cancel = $('#payCancel');
+    if (cancel) cancel.addEventListener('click', () => {
+      cancel.disabled = true; cancel.textContent = 'Скасовую…';
+      fetch(JS_FN + '?paycancel=' + id + '&inv=' + encodeURIComponent(mine.invoice), { method: 'POST' })
+        .then(r => r.json())
+        .then(r => {
+          if (r && r.ok) {
+            (mine.lines || []).forEach(l => { if (!cart.some(x => x.id === l.id && x.size === l.size)) cart.push(l); });
+            writeCart(cart);
+            forgetPaying();
+            location.replace(location.pathname);
+            return;
+          }
+          // гроші таки пройшли — показуємо це, а не кошик
+          if (r && r.error === 'paid') { location.replace(location.pathname + '?paid=' + encodeURIComponent(ref) + '&o=' + id); return; }
+          throw new Error('cancel');
+        })
+        .catch(() => { cancel.disabled = false; cancel.textContent = 'Скасувати й повернутись у кошик'; toast('Не вдалося скасувати — спробуйте ще раз'); });
+    });
+  }
+
+  /* Кнопка «Назад» зі сторінки банку. Замовлення вже створене, а браузер
+     показує кошик таким, яким його лишили, — з кнопкою «Відкриваю оплату…»,
+     що застигла. Тож памʼятаємо, яке замовлення пішло на оплату, і після
+     «Назад» ведемо на його екран: видно, що з оплатою, і можна оплатити ще раз. */
+  const PAY_KEY = 'js_paying';
+  function readPaying() { try { return JSON.parse(sessionStorage.getItem(PAY_KEY) || 'null'); } catch (e) { return null; } }
+  function savePaying(p) { try { sessionStorage.setItem(PAY_KEY, JSON.stringify(p)); } catch (e) {} }
+  // lines — що лежало в кошику (щоб повернути, якщо покупець скасує),
+  // invoice — номер рахунку monobank: за ним бот дозволяє скасувати неоплачене
+  function rememberPaying(id, ref, lines) {
+    const old = readPaying();
+    const keep = old && old.id === id ? old : {};
+    savePaying({ id: id, ref: ref, at: Date.now(), lines: lines || keep.lines || [], invoice: keep.invoice || '' });
+  }
+  function rememberInvoice(inv) { const p = readPaying(); if (p && inv) { p.invoice = inv; savePaying(p); } }
+  function forgetPaying() { try { sessionStorage.removeItem(PAY_KEY); } catch (e) {} }
+  function backFromBank() {
+    const p = readPaying();
+    // рахунок живе до 10 хвилин; далі замовлення однаково скасоване
+    if (!p || !p.id || Date.now() - p.at > 15 * 60e3) return false;
+    location.replace(location.pathname + '?paid=' + encodeURIComponent(p.ref) + '&o=' + p.id);
+    return true;
   }
 
   // Повернення з банку: koshyk.html?paid=<номер>&o=<id>. Відповідь банку
@@ -1802,6 +1852,7 @@
       .then(r => r.json())
       .then(r => {
         const state = !r || !r.ok ? 'failed' : r.state === 'paid' ? 'paid' : r.status === 'cancelled' ? 'cancelled' : r.state;
+        if (state === 'paid' || state === 'cancelled') forgetPaying();   // далі «Назад» уже нічого не ловить
         if (state === 'paid' || state === 'cancelled' || state === 'failed' || ++tries >= 6) payScreen(id, ref, state === 'wait' ? 'failed' : state);
         else setTimeout(ask, 2000);
       })
@@ -1811,6 +1862,11 @@
   }
 
   function checkout() {
+    // «Назад» зі сторінки банку: браузер або дістає сторінку з памʼяті (persisted),
+    // або вантажить її заново з позначкою back_forward
+    addEventListener('pageshow', e => { if (e.persisted && $('#co')) backFromBank(); });
+    // так само після «оновити» чи повторного заходу: кошик уже порожній, бо пішов у замовлення
+    if (!new URL(location.href).searchParams.get('paid') && !cart.length && backFromBank()) return;
     if (payReturn()) return;
     /* ---------- резерв на час оформлення ----------
        Поки покупець заповнює форму, його позиції відкладені в базі:
@@ -2369,6 +2425,7 @@
           note: $('#fNote').value.trim()
         }
       });
+      const ordered = cart.slice();   // для «скасувати й повернутись у кошик»
       cart = []; writeCart(cart);
 
       /* Карткою: одразу на сторінку оплати. Якщо вона не відкрилась —
@@ -2376,6 +2433,7 @@
       if (saved && oid && form.pay === 'online') {
         const btn = $('button[form=ord]');
         if (btn) { btn.disabled = true; btn.textContent = 'Відкриваю оплату…'; }
+        rememberPaying(oid, no, ordered);
         payGo(oid, no).catch(() => payScreen(oid, no, 'broken'));
         return;
       }
