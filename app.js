@@ -1906,15 +1906,30 @@
     let holdTimer = 0;
     let holdTries = 0;
     let sending = false;
+    /* Кошик нічого не притримує — лише перевіряє наявність. Річ, яку людина
+       просто поклала в кошик, ще ніхто не купив, тож іншим її не ховаємо.
+       Забирає той, хто першим натисне «Оформити»: тоді база перевіряє
+       й списує річ одним кроком і двічі не продасть. А тут — лише чесно
+       сказати, якщо річ уже справді замовили. */
     function hold() {
       const db = window.JS_DB;
-      if (!db || !orderLines().length) return;
+      const lines = orderLines();
+      if (!db || !lines.length || !db.stockOf) return;
       clearTimeout(holdTimer);
       holdTimer = setTimeout(() => {
-        db.rpc('stock_hold', { p_site: db.id, p_token: token(), p_lines: orderLines() })
-          .then(res => {
-            if (!res || res.ok !== false) { holdTries = 0; return; }
-            if (res.short && holdTries++ < 3) applyShort(res.short);
+        const ids = lines.map(l => l.item_id).filter((v, i, a) => a.indexOf(v) === i);
+        Promise.all(ids.map(id => db.stockOf(id)))
+          .then(lists => {
+            const rows = [].concat.apply([], lists.filter(Array.isArray));
+            const short = [];
+            lines.forEach(l => {
+              const r = rows.find(x => x.item_id === l.item_id && x.size === l.size && (x.color || '') === (l.color || ''));
+              if (!r) return;
+              const free = Math.max(0, (Number(r.qty) || 0) - (Number(r.reserved) || 0));
+              if (free < l.qty) short.push({ item_id: l.item_id, size: r.size, left: free });
+            });
+            if (!short.length) { holdTries = 0; return; }
+            if (holdTries++ < 3) applyShort(short);
           })
           .catch(() => {});
       }, 350);
@@ -1957,10 +1972,10 @@
     function taken(gone, less) {
       const title = gone.length ? 'Упс, не встигли' : 'Лишилось менше';
       const lead = gone.length && less.length
-        ? 'Поки ви оформлювали, частину речей купив хтось інший. Кошик ми вже поправили.'
+        ? 'Поки ви оформлювали, частину речей щойно замовив інший покупець. Кошик ми вже поправили.'
         : gone.length
-          ? (gone.length > 1 ? 'Поки ви оформлювали, ці речі купив хтось інший. Ми прибрали їх із кошика.'
-                             : 'Поки ви оформлювали, цю річ купив хтось інший. Ми прибрали її з кошика.')
+          ? (gone.length > 1 ? 'Ці речі щойно замовив інший покупець. Ми прибрали їх із кошика.'
+                             : 'Цю річ щойно замовив інший покупець. Ми прибрали її з кошика.')
           : 'Цих речей лишилось менше, ніж у кошику, — кількість зменшили.';
       const row = (x, note) => `<li><b>${esc((x.p.brand ? x.p.brand + ' ' : '') + x.p.name)}${x.size ? ', ' + esc(x.size) : ''}</b><span>${note}</span></li>`;
       modal('md--alert', `
