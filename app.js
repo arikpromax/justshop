@@ -2398,6 +2398,14 @@
       if (words.some(w => !/^[Ѐ-ӿ'ʼ’-]+$/.test(w))) return 'Лише літери, без цифр і знаків';
       return '';
     }
+    // І номер лише український: на нього Нова Пошта шле SMS, з іноземним ТТН не створить
+    function telProblem(v) {
+      const d = v.replace(/\D/g, '');
+      if ((d.length === 12 && d.indexOf('380') === 0) || (d.length === 10 && d[0] === '0')) return '';
+      return d.length > 3 && d.indexOf('380') !== 0 && d[0] !== '0'
+        ? 'Потрібен український номер +380 — на нього прийде SMS від Нової Пошти'
+        : 'Перевірте номер: +380 і ще 9 цифр';
+    }
 
     async function submit(e) {
       e.preventDefault();
@@ -2406,7 +2414,9 @@
       ok = fieldBad(name, form.dlv === 'pickup'
         ? (name.value.trim().length > 1 ? '' : 'Вкажіть імʼя')
         : nameProblem(name.value)) && ok;
-      ok = fieldBad(tel, tel.value.replace(/\D/g, '').length >= 11 ? '' : 'Перевірте номер телефону') && ok;
+      ok = fieldBad(tel, form.dlv === 'pickup'
+        ? (tel.value.replace(/\D/g, '').length >= 11 ? '' : 'Перевірте номер телефону')
+        : telProblem(tel.value)) && ok;
       if (form.dlv !== 'pickup') {
         const city = $('#fCity'), br = $('#fBr');
         ok = fieldBad(city, cityText().length > 1 ? '' : 'Вкажіть місто') && ok;
