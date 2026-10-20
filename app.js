@@ -2109,7 +2109,7 @@
           <div class="co2__g">
             <section class="co2__c">
               <h3>Дані покупця</h3>
-              <div class="f"><label for="fName">Прізвище, імʼя та по батькові</label><input id="fName" autocomplete="name" placeholder="Для накладної" value="${esc(form.name)}"><p class="fmsg"></p></div>
+              <div class="f"><label for="fName">Прізвище, імʼя та по батькові</label><input id="fName" autocomplete="name" placeholder="Як у документах: Шевченко Тарас" value="${esc(form.name)}"><p class="fmsg"></p></div>
               <div class="f"><label for="fTel">Телефон</label><input id="fTel" inputmode="tel" autocomplete="tel" value="${esc(form.tel || '+380 ')}"><p class="fmsg"></p></div>
               <div class="f"><label for="fNote">Коментар до замовлення</label><input id="fNote" placeholder="Необовʼязково" value="${esc(form.note)}"></div>
             </section>
@@ -2388,11 +2388,24 @@
       $('#sNote').textContent = notes.join(' ');
     }
 
+    /* Нова Пошта створює ТТН лише з прізвищем та імʼям кирилицею. Одне
+       слово чи латиниця — накладна не створиться, і магазину доведеться
+       дзвонити покупцю. Тож просимо одразу, як у документах. */
+    function nameProblem(v) {
+      const words = v.trim().split(/\s+/).filter(Boolean);
+      if (words.length < 2) return 'Вкажіть прізвище та імʼя — як у документах';
+      if (/[a-z]/i.test(v)) return 'Українськими літерами — латиницю Нова Пошта не приймає';
+      if (words.some(w => !/^[Ѐ-ӿ'ʼ’-]+$/.test(w))) return 'Лише літери, без цифр і знаків';
+      return '';
+    }
+
     async function submit(e) {
       e.preventDefault();
       const name = $('#fName'), tel = $('#fTel');
       let ok = true;
-      ok = fieldBad(name, name.value.trim().length > 1 ? '' : 'Вкажіть імʼя') && ok;
+      ok = fieldBad(name, form.dlv === 'pickup'
+        ? (name.value.trim().length > 1 ? '' : 'Вкажіть імʼя')
+        : nameProblem(name.value)) && ok;
       ok = fieldBad(tel, tel.value.replace(/\D/g, '').length >= 11 ? '' : 'Перевірте номер телефону') && ok;
       if (form.dlv !== 'pickup') {
         const city = $('#fCity'), br = $('#fBr');
