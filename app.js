@@ -424,7 +424,7 @@
       const s = e.target.closest('[data-search]');
       if (s) { e.preventDefault(); openSearch(); return; }
       const z = e.target.closest('[data-sizes]');
-      if (z) { e.preventDefault(); openSizes(z.dataset.sizes); }
+      if (z) { e.preventDefault(); openSizes(z.dataset.sizes, z.dataset.sex); }
     });
   }
 
@@ -577,20 +577,19 @@
     return `<text x="${x}" y="${y}" text-anchor="${anchor || 'middle'}"${r}>${t}</text>`;
   }
   const DIAGRAMS = {
+    // сітка Nike — обміри тіла: стрілки показують, де класти стрічку
     top: {
       g: 'hoodie', box: [66, 34, 3.6],
       marks: () => arrowSvg(91, 58, 214, 58) + tx(152, 50, 'ГРУДИ')
-        + arrowSvg(232, 74, 232, 171) + tx(246, 122, 'ДОВЖИНА', -90)
     },
     bottom: {
       g: 'pants', box: [88, 30, 3.7],
-      marks: () => arrowSvg(149, 54, 212, 54) + tx(180, 46, 'ПОЯС')
+      marks: () => arrowSvg(149, 54, 212, 54) + tx(180, 46, 'ТАЛІЯ')
         + arrowSvg(146, 88, 215, 88) + tx(138, 91, 'СТЕГНА', 0, 'end')
-        + arrowSvg(232, 67, 232, 171) + tx(246, 119, 'ДОВЖИНА', -90)
     },
     shoe: {
       g: 'sneaker', box: [46, 46, 3.6],
-      marks: () => arrowSvg(71, 196, 197, 196) + tx(134, 210, 'ДОВЖИНА УСТІЛКИ')
+      marks: () => arrowSvg(71, 196, 197, 196) + tx(134, 210, 'ДОВЖИНА СТОПИ')
     }
   };
   function diagram(kind) {
@@ -602,71 +601,76 @@
     </svg>`;
   }
 
-  /* блок «таблиця розмірів»: працює і в модалці, і просто на сторінці */
-  function sizeUI(root, kind) {
+  /* блок «таблиця розмірів» — сітка Nike (data.js). g — стать товару:
+     чоловіча й жіноча сітки різні, але перемкнути можна й самому. */
+  function sizeUI(root, kind, g) {
     const order = ['top', 'bottom', 'shoe'];
     let cur = order.indexOf(kind) > -1 ? kind : 'top';
-
-    const calcHtml = k => k === 'shoe'
-      ? `<div class="f"><label for="cF">Довжина устілки, см</label><input id="cF" inputmode="decimal" placeholder="27,5"></div>`
-      : `<div class="f"><label for="cH">Зріст, см</label><input id="cH" inputmode="numeric" placeholder="180"></div>
-         <div class="f"><label for="cW">Вага, кг</label><input id="cW" inputmode="numeric" placeholder="78"></div>`;
+    let sex = g === 'w' ? 'w' : 'm';
+    const dec = v => String(v).replace('.', ',');
+    const cell = v => (Array.isArray(v) ? v[0] + '–' + v[1] : dec(v));
 
     const paint = () => {
-      const t = SIZE_TABLES[cur];
+      const t = SIZE_TABLES[sex][cur];
+      const isShoe = cur === 'shoe';
       root.innerHTML = `
         <div class="szm">
           <aside class="szm__calc">
             <p class="mono">Не знаєте свій розмір</p>
             <h3 class="dsp h-sm">Порахуємо<br>за вас</h3>
-            ${calcHtml(cur)}
+            <div class="f"><label for="cV">${isShoe ? 'Довжина стопи, см' : esc(t.calc.label)}</label>
+              <input id="cV" inputmode="decimal" placeholder="${isShoe ? '26,5' : t.calc.ph}"></div>
             <button class="btn btn--wide btn--sm" type="button" id="cGo">Порахувати</button>
             <p class="szm__res" id="cRes"></p>
           </aside>
           <div class="szm__main">
-            <div class="szm__tabs">${order.map(k => `<button type="button" data-k="${k}"${k === cur ? ' aria-pressed="true"' : ''}>${esc(SIZE_TABLES[k].name)}</button>`).join('')}</div>
-            <p class="szm__note">${esc(t.note)}</p>
+            <div class="szm__tabs">${order.map(k => `<button type="button" data-k="${k}"${k === cur ? ' aria-pressed="true"' : ''}>${esc(SIZE_TABLES[sex][k].name)}</button>`).join('')}</div>
+            <div class="szm__tabs szm__sex">${[['m', 'Чоловіче'], ['w', 'Жіноче']].map(([k, n]) => `<button type="button" data-g="${k}"${k === sex ? ' aria-pressed="true"' : ''}>${n}</button>`).join('')}</div>
+            <p class="szm__note">${esc(SIZE_NOTES[cur])}</p>
             ${diagram(cur)}
             <div class="tblwrap tblwrap--one">
               <table class="tbl">
                 <thead><tr>${t.cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
-                <tbody>${t.rows.map(r => `<tr>${r.map(v => `<td>${String(v).replace('.', ',')}</td>`).join('')}</tr>`).join('')}</tbody>
+                <tbody>${t.rows.map(r => `<tr>${r.map(v => `<td>${cell(v)}</td>`).join('')}</tr>`).join('')}</tbody>
               </table>
             </div>
           </div>
         </div>`;
 
       $$('[data-k]', root).forEach(b => b.addEventListener('click', () => { cur = b.dataset.k; paint(); }));
-      $('#cGo', root).addEventListener('click', () => {
-        const res = $('#cRes', root);
-        const num = id => parseFloat(($(id, root) || {}).value ? $(id, root).value.replace(',', '.') : '');
-        if (cur === 'shoe') {
-          const f = num('#cF');
-          if (!(f > 18 && f < 36)) { res.textContent = 'Вкажіть довжину устілки, 20—35 см.'; res.className = 'szm__res szm__res--bad'; return; }
-          const row = SIZE_TABLES.shoe.rows.find(r => r[1] >= f - 0.2) || SIZE_TABLES.shoe.rows[SIZE_TABLES.shoe.rows.length - 1];
-          res.className = 'szm__res';
-          res.innerHTML = `Ваш розмір — <b>EU ${row[0]}</b>. Устілка ${String(row[1]).replace('.', ',')} см.`;
-          return;
+      $$('[data-g]', root).forEach(b => b.addEventListener('click', () => { sex = b.dataset.g; paint(); }));
+      const res = $('#cRes', root), inp = $('#cV', root);
+      const say = (html, bad) => { res.innerHTML = html; res.className = 'szm__res' + (bad ? ' szm__res--bad' : ''); };
+      // підсвітити знайдений рядок у таблиці
+      const mark = rows => $$('tbody tr', root).forEach((tr, i) => tr.classList.toggle('is-on', rows.indexOf(t.rows[i]) > -1));
+      const go = () => {
+        const v = parseFloat(inp.value.replace(',', '.'));
+        if (isShoe) {
+          if (!(v > 18 && v < 36)) { mark([]); return say('Вкажіть довжину стопи, 20—35 см.', true); }
+          // перший розмір, у який стопа вміщається; між розмірами Nike радить більший
+          const row = t.rows.find(r => r[3] >= v - 0.05);
+          if (!row) { mark([]); return say(`Стопа довша за найбільший розмір у сітці (EU ${dec(t.rows[t.rows.length - 1][0])}) — напишіть нам, підберемо.`, true); }
+          mark([row]);
+          return say(`Ваш розмір — <b>EU ${dec(row[0])}</b> (US ${dec(row[1])}). Стопа до ${dec(row[3])} см.`);
         }
-        const h = num('#cH'), w = num('#cW');
-        if (!(h > 140 && h < 215) || !(w > 35 && w < 200)) {
-          res.textContent = 'Впишіть зріст і вагу — і порахуємо.';
-          res.className = 'szm__res szm__res--bad';
-          return;
-        }
-        const idx = w - (h - 176) * 0.35;
-        const pick = SIZE_CALC.find(x => idx <= x.upTo) || SIZE_CALC[SIZE_CALC.length - 1];
-        const next = SIZE_CALC[SIZE_CALC.indexOf(pick) + 1];
-        res.className = 'szm__res';
-        res.innerHTML = `Ваш розмір — <b>${pick.size}</b>.` + (next ? ` Любите вільніше — беріть ${next.size}.` : '');
-      });
+        const c = t.calc.col, first = t.rows[0], last = t.rows[t.rows.length - 1];
+        if (!(v >= 40 && v <= 200)) { mark([]); return say('Впишіть обхват у сантиметрах — і порахуємо.', true); }
+        if (v < first[c][0]) { mark([first]); return say(`Менше за найменший розмір — беріть <b>${first[0]}</b>.`); }
+        if (v > last[c][1]) { mark([last]); return say(`Більше за найбільший розмір у сітці (${last[0]}) — напишіть нам, підберемо.`, true); }
+        const hit = t.rows.filter(r => v >= r[c][0] && v <= r[c][1]);
+        mark(hit);
+        if (hit.length > 1) return say(`Ви на межі: <b>${hit[0][0]}</b> сидітиме щільніше, <b>${hit[1][0]}</b> — вільніше.`);
+        return say(`Ваш розмір — <b>${hit[0][0]}</b>.`);
+      };
+      $('#cGo', root).addEventListener('click', go);
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
     };
     paint();
   }
 
-  function openSizes(kind) {
+  function openSizes(kind, g) {
     const m = modal('md--wide', '<div id="szmRoot"></div>');
-    sizeUI($('#szmRoot', m), kind);
+    sizeUI($('#szmRoot', m), kind, g);
   }
 
   function fieldBad(input, msg) {
@@ -1212,7 +1216,7 @@
             ? `<p class="onesize">${esc(p.sizes[0])}</p>`
             : `<div class="szpick" id="szPick">${p.sizes.map(s => `<button type="button" data-s="${esc(s)}" aria-pressed="false"${sizeGone(s) ? ' disabled title="Немає в наявності"' : ''}>${esc(s)}</button>`).join('')}</div>
           <p class="fmsg" id="szMsg"></p>`}
-          ${showTable ? `<button class="szlink" type="button" data-sizes="${sizeKind(p)}">${icon('ruler')}Таблиця розмірів</button>` : ''}
+          ${showTable ? `<button class="szlink" type="button" data-sizes="${sizeKind(p)}" data-sex="${p.gender === 'w' ? 'w' : 'm'}">${icon('ruler')}Таблиця розмірів</button>` : ''}
         </div>
         <div class="pdp__cta">
           ${p.stock === false || gone

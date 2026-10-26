@@ -619,6 +619,11 @@ body.menu-on::before{content:"";position:fixed;inset:0;z-index:55;background:rgb
 .szm__tabs button{padding:8px 15px;border:1px solid var(--line);border-radius:100px;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);transition:.15s}
 .szm__tabs button:hover{border-color:var(--ink);color:var(--ink)}
 .szm__tabs button[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#fff}
+/* чоловіча / жіноча сітка — другий, менший ряд перемикачів */
+.szm__sex{margin:-8px 0 14px}
+.szm__sex button{padding:6px 12px;font-size:9.5px}
+/* рядок, який знайшов калькулятор */
+.tbl tr.is-on td{background:rgba(255,59,20,.09);color:var(--ink);font-weight:600}
 .szm__note{color:var(--mut);font-size:14px;line-height:1.55;max-width:56ch}
 .dg{display:block;width:100%;max-width:330px;margin:10px auto 6px}
 .dg__g{color:var(--ink)}
