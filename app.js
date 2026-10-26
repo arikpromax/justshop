@@ -424,7 +424,7 @@
       const s = e.target.closest('[data-search]');
       if (s) { e.preventDefault(); openSearch(); return; }
       const z = e.target.closest('[data-sizes]');
-      if (z) { e.preventDefault(); openSizes(z.dataset.sizes, z.dataset.sex); }
+      if (z) { e.preventDefault(); openSizes(z.dataset.sizes, z.dataset.sex, z.dataset.brand); }
     });
   }
 
@@ -560,6 +560,18 @@
   /* ---------- таблиця розмірів ---------- */
   const SIZE_BY_CAT = { vzuttia: 'shoe', shkarpetky: 'shoe', shtany: 'bottom', shorty: 'bottom' };
   const sizeKind = p => SIZE_BY_CAT[p.cat] || 'top';
+  /* Взуття On і New Balance — за сіткою свого бренду (data.js, SHOE_BRANDS);
+     решта, зокрема Jordan, — за сіткою Nike. Дитячі New Balance (GC…) — своя. */
+  const shoeBrand = p => {
+    const b = (p.brand || '').trim().toLowerCase();
+    if (b === 'on') return 'on';
+    if (b === 'new balance') return /^(GC|GS|PC|PS|IC|IV|YC|YV)/i.test(p.sku) || /дитяч/i.test(p.name) ? 'nbkids' : 'nb';
+    return '';
+  };
+  // чия сітка: в On стать моделі видно з артикула (3M… — чоловіча, 3W… — жіноча)
+  const sizeSex = p => (p.brand || '').trim().toLowerCase() === 'on' && /^3[MW]/i.test(p.sku)
+    ? (/^3W/i.test(p.sku) ? 'w' : 'm')
+    : (p.gender === 'w' ? 'w' : 'm');
 
   /* схема обмірів: силует зі sprite.js + власні стрілки */
   function arrowSvg(x1, y1, x2, y2) {
@@ -602,16 +614,20 @@
   }
 
   /* блок «таблиця розмірів» — сітка Nike (data.js). g — стать товару:
-     чоловіча й жіноча сітки різні, але перемкнути можна й самому. */
-  function sizeUI(root, kind, g) {
+     чоловіча й жіноча сітки різні, але перемкнути можна й самому.
+     brand — взуття On чи New Balance показуємо за їхньою сіткою. */
+  function sizeUI(root, kind, g, brand) {
     const order = ['top', 'bottom', 'shoe'];
     let cur = order.indexOf(kind) > -1 ? kind : 'top';
     let sex = g === 'w' ? 'w' : 'm';
+    const B = SHOE_BRANDS[brand];
     const dec = v => String(v).replace('.', ',');
     const cell = v => (Array.isArray(v) ? v[0] + '–' + v[1] : dec(v));
+    // у таблицях взуття стопа — завжди 4-та колонка, за нею й рахуємо
+    const tableOf = k => (k === 'shoe' && B ? { name: 'Взуття', cols: B.cols, rows: B[sex], note: B.note } : SIZE_TABLES[sex][k]);
 
     const paint = () => {
-      const t = SIZE_TABLES[sex][cur];
+      const t = tableOf(cur);
       const isShoe = cur === 'shoe';
       root.innerHTML = `
         <div class="szm">
@@ -626,7 +642,7 @@
           <div class="szm__main">
             <div class="szm__tabs">${order.map(k => `<button type="button" data-k="${k}"${k === cur ? ' aria-pressed="true"' : ''}>${esc(SIZE_TABLES[sex][k].name)}</button>`).join('')}</div>
             <div class="szm__tabs szm__sex">${[['m', 'Чоловіче'], ['w', 'Жіноче']].map(([k, n]) => `<button type="button" data-g="${k}"${k === sex ? ' aria-pressed="true"' : ''}>${n}</button>`).join('')}</div>
-            <p class="szm__note">${esc(SIZE_NOTES[cur])}</p>
+            <p class="szm__note">${esc(t.note || SIZE_NOTES[cur])}</p>
             ${diagram(cur)}
             <div class="tblwrap tblwrap--one">
               <table class="tbl">
@@ -651,7 +667,9 @@
           const row = t.rows.find(r => r[3] >= v - 0.05);
           if (!row) { mark([]); return say(`Стопа довша за найбільший розмір у сітці (EU ${dec(t.rows[t.rows.length - 1][0])}) — напишіть нам, підберемо.`, true); }
           mark([row]);
-          return say(`Ваш розмір — <b>EU ${dec(row[0])}</b> (US ${dec(row[1])}). Стопа до ${dec(row[3])} см.`);
+          // On довжини стопи не дає — там вона приблизна, а точне число — JP
+          const about = /≈/.test(t.cols[3]) ? `приблизно до ${dec(row[3])} см (JP ${dec(row[4])})` : `до ${dec(row[3])} см`;
+          return say(`Ваш розмір — <b>EU ${dec(row[0])}</b> (US ${dec(row[1])}). Стопа ${about}.`);
         }
         const c = t.calc.col, first = t.rows[0], last = t.rows[t.rows.length - 1];
         if (!(v >= 40 && v <= 200)) { mark([]); return say('Впишіть обхват у сантиметрах — і порахуємо.', true); }
@@ -668,9 +686,9 @@
     paint();
   }
 
-  function openSizes(kind, g) {
+  function openSizes(kind, g, brand) {
     const m = modal('md--wide', '<div id="szmRoot"></div>');
-    sizeUI($('#szmRoot', m), kind, g);
+    sizeUI($('#szmRoot', m), kind, g, brand);
   }
 
   function fieldBad(input, msg) {
@@ -1216,7 +1234,7 @@
             ? `<p class="onesize">${esc(p.sizes[0])}</p>`
             : `<div class="szpick" id="szPick">${p.sizes.map(s => `<button type="button" data-s="${esc(s)}" aria-pressed="false"${sizeGone(s) ? ' disabled title="Немає в наявності"' : ''}>${esc(s)}</button>`).join('')}</div>
           <p class="fmsg" id="szMsg"></p>`}
-          ${showTable ? `<button class="szlink" type="button" data-sizes="${sizeKind(p)}" data-sex="${p.gender === 'w' ? 'w' : 'm'}">${icon('ruler')}Таблиця розмірів</button>` : ''}
+          ${showTable ? `<button class="szlink" type="button" data-sizes="${sizeKind(p)}" data-sex="${sizeSex(p)}" data-brand="${shoeBrand(p)}">${icon('ruler')}Таблиця розмірів</button>` : ''}
         </div>
         <div class="pdp__cta">
           ${p.stock === false || gone
